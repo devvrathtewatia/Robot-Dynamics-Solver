@@ -1,296 +1,361 @@
-# robot_dynamics
+Robotics Dynamics Solver
 
-**A general N-DOF rigid-body dynamics library for serial manipulators, implementing
-both the Lagrangian and the recursive Newton–Euler formulations.**
+A Python implementation of rigid-body dynamics for serial robot manipulators.
 
-Computes the equation of motion
+I built this project to understand the mathematics behind robot dynamics and to implement the main algorithms myself rather than treating a dynamics library as a black box.
 
-$$\tau = M(q)\,\ddot q + C(q,\dot q)\,\dot q + G(q) - J^\top f_{\text{ext}}$$
+The project includes Lagrangian dynamics, Featherstone's recursive algorithms, kinematics, trajectory generation, simulation, and model-based control.
 
-in both directions — inverse dynamics for control, forward dynamics for simulation —
-with trajectory generation and model-based control on top.
+What this project does
 
-The same code path handles 2 degrees of freedom and 24. There is no `if n == ...`
-branch anywhere in the library.
+For a serial manipulator, the dynamics can be written in the general form:
 
----
+tau = M(q) qdd + C(q, qdot) qdot + G(q) - J^T f_ext
 
-## Why
+where:
 
-Three reasons this exists rather than reaching for an established simulator:
+M(q) is the mass matrix
+C(q, qdot) contains Coriolis and centrifugal terms
+G(q) is the gravity torque
+J^T f_ext represents the effect of an external wrench
 
-**To derive rather than call.** The Lagrangian backend assembles $M$, $C$ and $G$
-from first principles — kinetic and potential energy, Christoffel symbols — because
-the point is to understand where the equations come from, not to obtain a number.
+The library supports both directions of the dynamics problem.
 
-**To validate independently.** Featherstone's RNEA, CRBA and ABA are implemented as a
-*second and third* route to the same answers, sharing only the kinematic model. Two
-formalisms agreeing to $10^{-14}$ is real evidence; one formalism agreeing with itself
-is not. That cross-check found two genuine bugs during development, both documented
-in [`docs/theory.md`](docs/theory.md#6-errors-found-during-development).
+Inverse dynamics
 
-**To answer engineering questions.** The library ships with the 6-DOF arm from a
-companion Gazebo mobile-manipulator project, whose *kinematics* were already
-validated. Dynamics answers the next question: the shoulder pitch must hold
-2.17 N·m statically, 3.74 N·m with a 0.5 kg payload, and peaks at 2.16 N·m over a
-one-second reach. Those are servo-specification numbers.
+Given:
 
----
+q, qdot, qdd
 
-## Installation
+the solver calculates the required joint torques:
 
-```bash
-pip install -e ".[dev]"        # everything, including SymPy and matplotlib
-pip install -e .              # numerical layer only, NumPy is the sole dependency
-```
+tau
 
-Python 3.10+.
+Forward dynamics
 
----
+Given:
 
-## Minimal example
+q, qdot, tau
 
-```python
+the solver calculates the resulting joint acceleration:
+
+qdd
+
+The implementation is written to work with different serial manipulators and numbers of degrees of freedom.
+
+Why I built it
+
+I started with the Lagrangian formulation because I wanted to understand how the standard manipulator dynamics equation is obtained from kinetic and potential energy.
+
+I then implemented Featherstone's recursive algorithms independently so that I could compare different formulations of the same dynamics problem.
+
+This gave me two goals for the project:
+
+Understand the mathematics behind robot dynamics.
+Validate the implementation by comparing independent algorithms.
+
+This is primarily an educational and research implementation, rather than an attempt to replace established robotics dynamics libraries.
+
+Dynamics algorithms
+1. Lagrangian Dynamics
+
+The Lagrangian formulation starts from:
+
+L = T - V
+
+where:
+
+T is kinetic energy
+V is potential energy
+
+The implementation calculates:
+
+Mass matrix M(q)
+Gravity vector G(q)
+Coriolis and centrifugal terms
+Inverse dynamics
+Forward dynamics
+
+The Lagrangian implementation provides an explicit formulation that can be used to validate the recursive algorithms.
+
+2. Recursive Newton-Euler Algorithm
+
+RNEA is used for inverse dynamics.
+
+It performs:
+
+A forward pass through the robot to calculate velocities and accelerations.
+A backward pass to propagate forces and calculate joint torques.
+
+The algorithm has linear computational complexity with respect to the number of joints:
+
+O(n)
+
+3. Composite Rigid Body Algorithm
+
+CRBA calculates the mass matrix using composite rigid-body inertias.
+
+Its computational complexity is:
+
+O(n^2)
+
+The resulting mass matrix can then be used for forward dynamics and other calculations.
+
+4. Articulated Body Algorithm
+
+ABA is used for forward dynamics.
+
+It calculates joint accelerations directly from the robot state and applied torques using articulated-body inertias.
+
+Its computational complexity is:
+
+O(n)
+
+Validation
+
+A major part of the project is comparing independent formulations of the same dynamics problem.
+
+The validation suite includes comparisons between:
+
+Lagrangian inverse dynamics and RNEA
+Lagrangian mass matrix and CRBA
+Lagrangian forward dynamics and ABA
+Christoffel-based Coriolis terms and the recursive formulation
+Numerical dynamics and a closed-form 2-DOF derivation
+Numerical dynamics and an independent SymPy Euler-Lagrange derivation
+
+Additional checks include:
+
+Mass matrix symmetry
+Positive definiteness of the mass matrix
+The skew-symmetry property of the dynamics matrices
+Forward/inverse dynamics consistency
+External wrench handling
+Energy conservation during passive simulation
+
+The test suite currently contains 316 tests covering kinematics, dynamics, symbolic derivations, control, simulation, and multiple robot models.
+
+More detailed validation information is available in:
+
+docs/validation.md
+
+Example
 import numpy as np
 import robot_dynamics as rd
 
-robot = rd.planar_chain(3)                    # or build from Link/Joint directly
+robot = rd.planar_chain(3)
 
-q   = np.array([0.3, -0.6,  0.9])
-qd  = np.array([0.5,  0.2, -0.4])
-qdd = np.array([1.0, -0.5,  0.3])
+q = np.array([0.3, -0.6, 0.9])
+qd = np.array([0.5, 0.2, -0.4])
+qdd = np.array([1.0, -0.5, 0.3])
 
-tau = robot.inverse_dynamics(q, qd, qdd)      # what the actuators must deliver
-qdd_back = robot.forward_dynamics(q, qd, tau) # and back again
+# Inverse dynamics
+tau = robot.inverse_dynamics(q, qd, qdd)
+
+# Forward dynamics
+qdd_back = robot.forward_dynamics(q, qd, tau)
+
 assert np.allclose(qdd_back, qdd)
 
-M = robot.mass_matrix(q)                      # the terms individually
+# Individual dynamics terms
+M = robot.mass_matrix(q)
 C = robot.coriolis(q, qd)
 G = robot.gravity_torque(q)
+
 assert np.allclose(tau, M @ qdd + C @ qd + G)
-```
 
-Building a model explicitly:
+Different implementations can also be selected explicitly:
 
-```python
-from robot_dynamics import Joint, Link, Robot
-from robot_dynamics.utils import transform
+robot.mass_matrix(q, method="crba")
+robot.mass_matrix(q, method="lagrangian")
 
-robot = Robot(
-    links=[Link(mass=1.2, com=[0.15, 0, 0], inertia=np.diag([1e-3, 2e-2, 2e-2])),
-           Link(mass=0.8, com=[0.10, 0, 0], inertia=np.diag([1e-3, 1e-2, 1e-2]))],
-    joints=[Joint('revolute', axis=[0, 0, 1]),
-            Joint('revolute', axis=[0, 1, 0],
-                  origin=transform(np.eye(3), [0.30, 0, 0]))],
-    gravity=(0, 0, -9.81),
-)
-```
+robot.inverse_dynamics(q, qd, qdd, method="rnea")
+robot.inverse_dynamics(q, qd, qdd, method="lagrangian")
 
-Choosing a backend explicitly — this is how the test suite cross-validates:
+robot.forward_dynamics(q, qd, tau, method="aba")
+robot.forward_dynamics(q, qd, tau, method="lagrangian")
+From dynamics to simulation and control
 
-```python
-robot.mass_matrix(q, method='crba')          # O(n^2), the default
-robot.mass_matrix(q, method='lagrangian')    # from the kinetic energy
-robot.inverse_dynamics(q, qd, qdd, method='rnea')        # O(n), default
-robot.inverse_dynamics(q, qd, qdd, method='lagrangian')  # O(n^3)
-robot.forward_dynamics(q, qd, tau, method='aba')         # O(n), default
-robot.forward_dynamics(q, qd, tau, method='lagrangian')  # Cholesky solve
-```
+The project also includes trajectory generation, numerical simulation, and model-based control.
 
----
+Robot Model
+    |
+    +-- Kinematics
+    |     +-- Forward kinematics
+    |     +-- Jacobians
+    |     +-- COM Jacobians
+    |
+    +-- Dynamics
+    |     +-- Lagrangian
+    |     +-- RNEA
+    |     +-- CRBA
+    |     +-- ABA
+    |
+    +-- Trajectory Generation
+    |     +-- Cubic
+    |     +-- Quintic
+    |     +-- Multi-waypoint
+    |
+    +-- Simulation
+    |     +-- RK4 integration
+    |
+    +-- Control
+          +-- PD + gravity compensation
+          +-- Feedforward + PD
+          +-- Computed torque control
+Experiments
+Trajectory Torque Calculation
 
-## Architecture
+The project can generate joint trajectories and calculate the torques required to follow them using the dynamics model.
 
-```
-                        Robot model
-                    (Link, Joint, Robot)
-                             |
-                        Kinematics
-              (link transforms, Jacobians, COM Jacobians)
-                             |
-                    +--------+--------+
-                    |                 |
-               Lagrangian        Featherstone
-            M from kinetic       RNEA  (tau, O(n))
-            energy; G from       CRBA  (M,   O(n^2))
-            potential; C from    ABA   (qdd, O(n))
-            Christoffel symbols
-                    |                 |
-                    +--------+--------+
-                             |
-                     Forward dynamics
-                  (linear solve, never M^-1)
-                             |
-                        Simulation
-                          (RK4)
-                             |
-                         Control
-             (PD + gravity, computed torque, feedforward)
 
-   Symbolic layer (SymPy) sits OFF to the side: it derives and audits the
-   equations and can compile them, but is never imported by the numerical path.
-   That boundary is enforced by a test and again in CI.
-```
 
-```
-src/robot_dynamics/
-├── utils/          rotations, homogeneous transforms, spatial (Plucker) algebra
-├── models/         Link, Joint, Robot, and ready-made example robots
-├── kinematics/     forward kinematics, Jacobians, COM Jacobians
-├── dynamics/       lagrangian, rnea, crba (+aba), symbolic
-├── trajectory/     quintic and cubic polynomials, multi-waypoint
-├── control/        PD+gravity, computed torque, feedforward+PD
-└── simulation/     RK4 integration, energy and tracking-error reporting
-```
 
----
+Model-Based Control
 
-## Results
+The project includes model-based control experiments using:
 
-Run `python examples/03_trajectory_torques.py` etc. to regenerate every figure.
+PD + gravity compensation
+Feedforward + PD
+Computed torque control
 
-### A trajectory and the torques it demands
 
-![trajectory](docs/figures/trajectory_torques.png)
 
-A quintic rest-to-rest motion on a 4-DOF spatial chain, and the joint torque it
-requires. The shoulder peaks at 17.1 N·m against a 15.9 N·m static hold — for this
-motion gravity dominates and acceleration adds only about 8 %.
 
-### Model-based control
+Energy Conservation
 
-![control](docs/figures/control_tracking.png)
+A passive manipulator can be simulated under gravity using numerical integration.
 
-Same arm, same gains, same step. Measured maximum tracking error:
+The project compares RK4 and explicit Euler integration and examines the resulting energy drift.
 
-| controller | max abs error |
-|---|---|
-| PD + gravity compensation | 5.4 × 10⁻² rad |
-| feedforward + PD | 4.2 × 10⁻¹⁰ rad |
-| computed torque | 1.6 × 10⁻¹¹ rad |
 
-A factor of $10^9$, from nothing but knowing $M$ and $C$.
 
-### Energy conservation
 
-![energy](docs/figures/passive_energy.png)
+6-DOF Manipulator
 
-A torque-free arm falling under gravity. RK4 at 1 ms drifts by 4 × 10⁻⁹ relative over
-4 s; explicit Euler at the same step drifts by 7 × 10⁻². This doubles as a test of the
-dynamics — the algebraic identities are all evaluated at a single instant, whereas
-drift accumulates.
+The dynamics model also includes the 6-DOF arm used in my mobile bimanual manipulation project.
 
-### The companion 6-DOF arm
+The solver can be used to investigate:
 
-![bimanual](docs/figures/bimanual_torques.png)
+Joint torque requirements
+Static payload requirements
+Torque variation during trajectories
+Dynamics during arm motion
+Model-based control
 
-Static hold versus peak torque per joint for the arm from the Gazebo project.
 
----
 
-## Validation
 
-Full measured report: [`docs/validation.md`](docs/validation.md), regenerated by
-`python docs/generate_validation.py` and checked in CI so it cannot go stale.
+Project Structure
+robot_dynamics/
+|
++-- src/robot_dynamics/
+|   |
+|   +-- models/
+|   +-- kinematics/
+|   |
+|   +-- dynamics/
+|   |   +-- lagrangian.py
+|   |   +-- rnea.py
+|   |   +-- crba.py
+|   |   +-- aba.py
+|   |   +-- symbolic.py
+|   |
+|   +-- trajectory/
+|   +-- control/
+|   +-- simulation/
+|   +-- utils/
+|
++-- tests/
++-- examples/
++-- benchmarks/
+|
++-- docs/
+|   +-- theory.md
+|   +-- validation.md
+|   +-- generate_validation.py
+|
++-- SPEC.md
++-- pyproject.toml
++-- requirements.txt
++-- README.md
+Installation
 
-**316 tests** over 13 models spanning $n = 2$ to $n = 9$ — planar, spatial, randomly
-generated, mixed revolute/prismatic, pure-prismatic gantry, and the real 6-DOF arm.
+Python 3.10+ is required.
 
-| what is checked | result |
-|---|---|
-| Lagrange vs RNEA (torque) | ≤ 8.3 × 10⁻¹⁶ |
-| Lagrange vs CRBA (mass matrix) | ≤ 1.7 × 10⁻¹⁵ |
-| Lagrange vs ABA (acceleration) | ≤ 1.6 × 10⁻¹⁴ |
-| Christoffel $C\dot q$ vs RNEA | ≤ 1.5 × 10⁻¹⁵ |
-| vs closed-form 2-DOF hand derivation | ≤ 10⁻¹⁵ over 200 random states |
-| vs SymPy Euler–Lagrange derivation | ≤ 10⁻¹⁵ |
-| $M = M^\top$, $x^\top M x > 0$ | holds on every model |
-| $\dot M - 2C$ skew-symmetric | ≤ 10⁻⁹ |
-| $\ddot q \to \tau \to \ddot q$ | ≤ 1.6 × 10⁻¹⁴ |
-| external wrench vs $-J^\top f$ | ≤ 10⁻¹⁴ |
+For the development environment:
 
-Two things make this more than self-congratulation. The property tests only prove
-*self-consistency* — a model could satisfy all of them and still describe the wrong
-robot — so the closed-form and SymPy comparisons are what pin down that the model is
-the intended one. And the backends are genuinely independent, so a shared bug would
-have to be written twice in two formalisms.
+pip install -e ".[dev]"
 
-Empirical scaling, from `benchmarks/bench_backends.py` (fit over $n \ge 4$):
+For the numerical library only:
 
-| algorithm | measured exponent | expected |
-|---|---|---|
-| RNEA inverse dynamics | 0.98 | 1 |
-| ABA forward dynamics | 0.99 | 1 |
-| CRBA mass matrix | 1.20 | 2 |
-| Lagrangian inverse dynamics | 2.43 | 3 |
+pip install -e .
+Running the examples
+python examples/01_inverse_dynamics.py
+python examples/02_passive_simulation.py
+python examples/03_trajectory_torques.py
+python examples/04_computed_torque.py
+python examples/05_bimanual_arm.py
 
-CRBA measures below its asymptotic exponent because at these sizes per-link Python
-overhead dominates the $O(n^2)$ work; the Lagrangian exponent is approaching 3 from
-below for the same reason.
+To regenerate validation results:
 
----
+python docs/generate_validation.py
 
-## Limitations
+To run the test suite:
 
-Stated explicitly, because a list of what a library does *not* do is more useful than
-an implied claim that it does everything.
+pytest
+Computational Complexity
+Algorithm	Operation	Complexity
+RNEA	Inverse dynamics	O(n)
+ABA	Forward dynamics	O(n)
+CRBA	Mass matrix	O(n²)
+Lagrangian	Equation-based dynamics	Higher computational cost
 
-- **Fixed base only.** No floating-base dynamics, so no legged or free-flying robots.
-- **Serial chains only.** No closed kinematic loops and no branched trees. The
-  recursive algorithms are written against a `parent` array and would extend to a tree
-  with modest work; loops need constraint handling that is absent.
-- **No contact or collision.** External wrenches must be supplied by the caller;
-  nothing detects contact or resolves interpenetration.
-- **No joint friction, actuator dynamics, gear ratios or motor inertia.** These often
-  dominate a real manipulator's behaviour at low speed.
-- **Joint limits are recorded but never enforced** during simulation. A simulated arm
-  will happily pass through its own limits.
-- **Ideal rigid bodies.** No link flexibility or backlash.
-- **No code generation.** Fast enough for offline analysis and control design, not for
-  a real-time loop at kHz rates from Python.
-- **Symbolic derivation does not scale.** Expression size grows steeply with DOF; a
-  full 6-DOF spatial chain can take minutes and produce unreadable output. Use it on
-  2- and 3-DOF models to verify, and trust the recursive backends beyond that.
-- **Single-threaded, dense linear algebra.** No sparsity exploitation.
+The repository also contains a benchmark suite for measuring the empirical scaling of the different implementations.
 
----
+Limitations
 
-## Project layout
+This is an educational and research implementation rather than a production robotics dynamics engine.
 
-```
-dynamics/
-├── SPEC.md                     the Phase 0 specification, written before any code
-├── README.md                   this file
-├── src/robot_dynamics/         the library
-├── tests/                      316 tests
-├── examples/                   five runnable examples, generate every figure
-├── benchmarks/                 backend cost against n
-├── docs/
-│   ├── theory.md               derivations, conventions, and the bugs found
-│   ├── validation.md           measured error tables, regenerated by CI
-│   ├── generate_validation.py
-│   └── figures/
-├── pyproject.toml
-├── LICENSE                     MIT
-└── .github/workflows/tests.yml Python 3.10-3.13, lint, tests, purity check
-```
+Current limitations include:
 
-## Running things
+Fixed-base serial manipulators only
+No closed kinematic loops
+No branched robot trees
+No contact or collision dynamics
+No joint friction or actuator dynamics
+No gear-ratio or motor-inertia modelling
+Joint limits are stored but not enforced during simulation
+Rigid links only
+Dense, single-threaded numerical operations
+Symbolic expressions become expensive as the number of DOF increases
+Python implementation is intended primarily for analysis, simulation, and control experiments rather than high-frequency real-time deployment
+Theory and Documentation
 
-```bash
-pytest tests -q                              # the suite
-python docs/generate_validation.py           # the measured error tables
-python benchmarks/bench_backends.py          # scaling
-cd examples && python 03_trajectory_torques.py
-```
+The mathematical background, spatial-vector conventions, derivations, and implementation notes are documented in:
 
-## References
+SPEC.md
+docs/theory.md
+docs/validation.md
 
-R. Featherstone, *Rigid Body Dynamics Algorithms* (2008) for the recursive
-algorithms and spatial-vector formalism. Spong, Hutchinson & Vidyasagar, *Robot
-Modeling and Control* for the Lagrangian formulation and computed torque. Squire &
-Trapp, *SIAM Review* 40(1) 1998 for complex-step differentiation.
+The recursive dynamics implementation follows the rigid-body dynamics framework developed in Featherstone's work.
 
-## License
+Relation to My Robotics Work
 
-MIT.
+This project is connected to my work on a mobile bimanual manipulator.
+
+The dynamics solver gives me a way to investigate the mechanical requirements of the 6-DOF arm, including:
+
+Required joint torques for a given payload
+Static loading at different configurations
+Torque requirements during trajectories
+Dynamics during manipulation
+Model-based control
+
+The goal is to use the solver not only as a standalone implementation project, but also as a tool for analysing the robot I am building.
+
+Status
+
+The core dynamics implementations, validation suite, simulation, and control components are implemented.
+
+The project is still evolving, with ongoing work on mathematical documentation, additional validation cases, and applications of the solver to robotic manipulation.
