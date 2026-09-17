@@ -1,0 +1,10 @@
+# Runtime requirement of the numerical layer.
+numpy>=1.24
+
+# Optional. The symbolic layer needs SymPy; the examples' plots need matplotlib.
+# Neither is imported by the numerical code path.
+sympy>=1.12
+matplotlib>=3.7
+
+# Testing
+pytest>=7.4
