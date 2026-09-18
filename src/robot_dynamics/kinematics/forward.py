@@ -1,23 +1,21 @@
-"""Generic forward kinematics and Jacobians for a serial chain of any length.
+# This does calculation for any Generic forward kinematics and Jacobians
+# for a serial chain of any length. The D type-transparent design preserves
+# us from having to write separate code for float and complex types. DUe to thus,
+# the Lagrangian backend can take a complex-step derivative of the mass
+# matrix without a separate symbolic path.
 
-Everything here is dtype-transparent: pass a complex ``q`` and complex transforms
-come back. That is what lets the Lagrangian backend take a complex-step derivative
-of the mass matrix without a separate symbolic path.
-"""
 from __future__ import annotations
 
-import numpy as np
-from numpy.typing import ArrayLike, NDArray
+import numpy as np  # pyright: ignore[reportMissingImports]
+from numpy.typing import ArrayLike, NDArray  # pyright: ignore[reportMissingImports]
 
 from ..models.robot import Robot
 from ..utils.spatial import plucker
 
 
-def link_transforms(robot: Robot, q: ArrayLike) -> list[NDArray]:
-    r"""Return :math:`[T_0^1, T_0^2, \ldots, T_0^n]`, one per link.
-
-    Each is the 4x4 pose of that link's frame in the base frame.
-    """
+def link_transforms(robot: Robot, q: ArrayLike):
+    # Returns [T_0^1, T_0^2,... T_0^n], one per link where each is the
+    # 4x4 pose of that link's frame in the base frame.
     q = np.asarray(q).reshape(-1)
     if q.shape != (robot.n,):
         raise ValueError(f'expected {robot.n} joint values, got {q.shape}')
@@ -29,21 +27,21 @@ def link_transforms(robot: Robot, q: ArrayLike) -> list[NDArray]:
     return out
 
 
-def forward_kinematics(robot: Robot, q: ArrayLike) -> NDArray:
-    r"""End-effector pose :math:`T_0^n(q)`."""
+def forward_kinematics(robot: Robot, q: ArrayLike):
+    # End-effector pose : T_0^n(q)
     return link_transforms(robot, q)[-1]
 
 
-def com_positions(robot: Robot, q: ArrayLike) -> list[NDArray]:
-    """World-frame centre-of-mass position of every link."""
+def com_positions(robot: Robot, q: ArrayLike):
+    # World frame COM position of every link.
     Ts = link_transforms(robot, q)
     return [T[:3, :3] @ link.com + T[:3, 3]
             for T, link in zip(Ts, robot.links, strict=True)]
 
 
-def _axes_and_origins(robot: Robot, Ts: list[NDArray]
-                      ) -> tuple[list[NDArray], list[NDArray]]:
-    """World-frame joint axis and frame origin for every joint."""
+def _axes_and_origins(robot: Robot, Ts: list[NDArray]):
+    # Joint axis and frame origin for every joint wrt to world frame.
+    # These are used to compute Jacobians.
     axes, origins = [], []
     for i, joint in enumerate(robot.joints):
         R, p = Ts[i][:3, :3], Ts[i][:3, 3]
@@ -54,18 +52,11 @@ def _axes_and_origins(robot: Robot, Ts: list[NDArray]
     return axes, origins
 
 
-def point_jacobian(robot: Robot, q: ArrayLike, point: ArrayLike,
-                   up_to: int | None = None) -> NDArray:
-    r"""Jacobian of a world-frame ``point`` rigidly attached to link ``up_to``.
-
-    Returns a ``(6, n)`` matrix in the **geometric** ordering
-
-    .. math:: \begin{bmatrix} \dot p \\ \omega \end{bmatrix} = J(q)\,\dot q
-
-    Columns for joints beyond ``up_to`` are zero: a joint downstream of a body
-    cannot move it. That zero pattern is what makes the per-link COM Jacobians
-    assemble into a correct mass matrix.
-    """
+def point_jacobian(robot: Robot, q: ArrayLike, point: ArrayLike, up_to: int):
+    # Jacobian of a point rigidly attached to link wrt to worlf frame.
+    # Returns a (6, n) geometric Jacobian matrix ([p{dot} w] = J(q) q{dot}).
+    # Columns for joints that are after up_to becomes 0,ensuring correct
+    # matrix assembly from the Jacobians.
     q = np.asarray(q).reshape(-1)
     Ts = link_transforms(robot, q)
     axes, origins = _axes_and_origins(robot, Ts)
@@ -84,15 +75,12 @@ def point_jacobian(robot: Robot, q: ArrayLike, point: ArrayLike,
 
 
 def jacobian(robot: Robot, q: ArrayLike, link: int = -1,
-             point_local: ArrayLike | None = None) -> NDArray:
-    r"""Geometric Jacobian of a link frame (or a point fixed in it).
-
-    Parameters
-    ----------
-    link:
-        Index of the link, default ``-1`` for the end effector.
-    point_local:
-        Optional point in that link's own frame; defaults to its origin.
+             point_local: ArrayLike | None = None):
+    # Returns Jacobian of a link frame.
+    """
+    Parameters -->
+    link: Index of the link, with a -1 for end effector.
+    point_local: Optional point in that link's own frame.
     """
     idx = robot.n - 1 if link == -1 else link
     Ts = link_transforms(robot, q)
@@ -105,11 +93,10 @@ def jacobian(robot: Robot, q: ArrayLike, link: int = -1,
 
 
 def com_jacobians(robot: Robot, q: ArrayLike) -> list[NDArray]:
-    """Geometric Jacobian of every link's centre of mass.
+    # Jacobian of every link's centre of mass
+    # It is calculated once and used by mass matrix, gravity vector, and
+    # even the external wrench mapping.
 
-    Returned once and reused by the mass matrix, the gravity vector and the
-    external-wrench mapping - all three need exactly this quantity.
-    """
     q = np.asarray(q).reshape(-1)
     Ts = link_transforms(robot, q)
     axes, origins = _axes_and_origins(robot, Ts)
@@ -129,18 +116,17 @@ def com_jacobians(robot: Robot, q: ArrayLike) -> list[NDArray]:
     return out
 
 
-def joint_transforms_spatial(robot: Robot, q: ArrayLike) -> list[NDArray]:
-    """Per-joint spatial motion transforms ``X[i]``: parent coordinates to link ``i``.
-
-    These are the ``X_{i,\\lambda(i)}`` of Featherstone's recursions.
-    """
+def joint_transforms_spatial(robot: Robot, q: ArrayLike):
+    # Per-joint spatial motion transforms X[i] from the parent link
+    # to the child link, in the base frame.
+    # These are the Featherstone's recursions.
     q = np.asarray(q, dtype=float).reshape(-1)
     return [plucker(joint.origin @ joint.motion_transform(q[i]))
             for i, joint in enumerate(robot.joints)]
 
 
-def base_to_link_spatial(robot: Robot, q: ArrayLike) -> list[NDArray]:
-    """Composed spatial motion transforms from the base frame to each link."""
+def base_to_link_spatial(robot: Robot, q: ArrayLike):
+    # Composed spatial motion transforms from the base frame to each link.
     Xs = joint_transforms_spatial(robot, q)
     out, acc = [], np.eye(6)
     for X in Xs:
@@ -150,13 +136,10 @@ def base_to_link_spatial(robot: Robot, q: ArrayLike) -> list[NDArray]:
 
 
 def jacobian_dot(robot: Robot, q: ArrayLike, qd: ArrayLike,
-                 link: int = -1, h: float = 1e-20) -> NDArray:
-    r""":math:`\dot J(q,\dot q)`, by complex-step differentiation along ``qd``.
-
-    Uses the directional derivative
-    :math:`\dot J = \sum_k (\partial J/\partial q_k)\dot q_k`, evaluated in one shot
-    as :math:`\mathrm{Im}\,J(q + i h \dot q)/h`. Exact to machine precision, and one
-    function evaluation rather than ``2n``.
+                 link: int = -1, h: float = 1e-20):
+    """Computes the time derivative of the Jacobian J{dot} using complex-step differentiation
+       along qd such that J{dot}(q,qd) = Im[J(q+ih*qd)]/h. This interpretation reduces the number
+       of evaluations from 2n to just 1, and is numerically stable.
     """
     q = np.asarray(q, dtype=float).reshape(-1)
     qd = np.asarray(qd, dtype=float).reshape(-1)

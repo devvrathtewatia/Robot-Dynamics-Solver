@@ -1,28 +1,29 @@
-"""The robot model: :class:`Link`, :class:`Joint`, :class:`Robot`.
+# This is a description of the robot that we defined. It is made to not inherit any
+# specific dof. It is modelled around the fact that length `n` represents the number of joints.
+# Every algorithm in the library loops over that.
+# the 2 - DOF planar arm and a random 30 - DOF chain go down exactly the same code path.
 
-The model carries no notion of how many degrees of freedom it has. ``Robot.n`` is
-simply ``len(joints)``, and every algorithm in the library loops over that. There
-is no ``if n == ...`` branch anywhere in the package — the 2-DOF planar arm and a
-random 30-DOF chain go down exactly the same code path.
+# Geometry convention --> Joint ``i`` connects link ``i-1`` to link ``i``.
+# It's origin is the fixed 4x4 transform from the previous link's frame to the joint
+# The joint's own motion is then applied along axis 'i'
 
-**Geometry convention.** Joint ``i`` connects link ``i-1`` to link ``i``. Its
-``origin`` is the fixed 4x4 transform from the previous link's frame to the joint
-frame; the joint's own motion is then applied about/along ``axis``:
 
-.. math:: T_0^i = T_0^{i-1}\\; \\text{origin}_i \\; T_{\\text{joint}}(q_i)
+# This is the URDF layout, so a model can be transcribed from a robot description
+# without re-deriving Denavit-Hartenberg parameters. Each link's inertial
+# property is described in its own frame, which is the frame that
+# the URDF specifies.
 
-This is the URDF/SDF layout, so a model can be transcribed from a robot
-description without re-deriving Denavit-Hartenberg parameters. Link ``i``'s inertial
-properties (``com``, ``inertia``) are expressed in link ``i``'s own frame.
-"""
+# The model follows the convention :-
+#          T_0^i = T_0^(i-1) * origin_i * joint_motion(q_i)
+
 from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Literal
 
-import numpy as np
-from numpy.typing import ArrayLike, NDArray
+import numpy as np  # pyright: ignore[reportMissingImports]
+from numpy.typing import ArrayLike, NDArray  # pyright: ignore[reportMissingImports]
 
 from ..utils.rotations import rot_axis
 from ..utils.transforms import transform
@@ -34,18 +35,14 @@ JointType = Literal['revolute', 'prismatic']
 class Link:
     """A rigid body.
 
-    Parameters
-    ----------
-    mass:
-        Mass in kg. Must be positive.
-    com:
-        Centre of mass in the **link frame**, metres.
-    inertia:
-        3x3 rotational inertia **about the centre of mass**, in link-frame axes.
-        Must be symmetric positive definite and satisfy the triangle inequalities
-        on its principal moments, or it does not describe a physical body.
-    name:
-        Optional label, used for external-wrench lookup and error messages.
+    Parameters -->
+
+    mass: Mass in kg. Must be positive.
+    com: Centre of mass in the with respect to the link frame in metres.
+    inertia: 3x3 rotational inertia about the centre of mass in link-frame axes.
+             Must be symmetric positive definite and satisfy the triangle inequalities
+             on its principal moments, or it does not describe a physical body.
+    name: This is an otional label, just used for external-wrench lookup and error messages.
     """
 
     mass: float
@@ -63,12 +60,11 @@ class Link:
             raise ValueError(f'link {self.name!r}: inertia must be symmetric')
 
     def validate_physical(self, tol: float = 1e-12) -> None:
-        """Raise if the inertia tensor cannot belong to a real rigid body.
-
-        Checks positive definiteness and the triangle inequality on the principal
-        moments, :math:`I_1 + I_2 \\ge I_3`. An inertia that fails these can make
-        the mass matrix indefinite, which then looks like a bug in the dynamics
-        rather than a bad model — worth catching at construction time.
+        """
+        Raise if the inertia tensor cannot belong to a real rigid body.
+        We check positive definiteness and the triangle inequality on the principal
+        moments. An inertia that fails these can make the mass matrix indefinite,
+        which will then prove to be a bug in dynamics rather than a bad model.
         """
         eig = np.linalg.eigvalsh(self.inertia)
         if eig.min() <= tol:
@@ -82,20 +78,13 @@ class Link:
 
 @dataclass
 class Joint:
-    """A one-degree-of-freedom joint.
-
-    Parameters
-    ----------
-    joint_type:
-        ``'revolute'`` (rotates about ``axis``) or ``'prismatic'`` (translates
-        along it).
-    axis:
-        Unit axis in the joint frame. Normalised on construction.
-    origin:
-        Fixed 4x4 transform from the previous link's frame to this joint's frame.
-    limits:
-        Optional ``(lower, upper)``. Recorded for trajectory and workspace code;
-        the dynamics never enforces them, which is stated as a limitation.
+    """
+    Parameters -->
+    joint_type: revolute or prismatic.
+    axis: Unit axis in the joint frame. Normalised on construction.
+    origin: Fixed 4x4 transform from the previous link's frame to this joint's frame.
+    limits: Optional (lower, upper). It is recorded for trajectory and workspace code;
+            the dynamics never enforces them, which is stated as a limitation.
     """
 
     joint_type: JointType = 'revolute'
@@ -116,17 +105,15 @@ class Joint:
                              f'{self.joint_type!r}')
 
     def motion_transform(self, q: float) -> NDArray:
-        """The joint's own 4x4 transform at coordinate ``q``."""
+        # The joint's own 4x4 transform at coordinate q, in the joint frame.
+        # This is the "joint motion" in the URDF convention.
         if self.joint_type == 'revolute':
             return transform(rot_axis(self.axis, q), np.zeros(3))
         return transform(np.eye(3), self.axis * q)
 
     def motion_subspace(self) -> NDArray:
-        """Featherstone's ``S``: the spatial motion vector this joint generates.
+        # Featherstone's ``S``: the spatial motion vector this joint generates.
 
-        ``[axis; 0]`` for a revolute joint, ``[0; axis]`` for a prismatic one, in
-        the ``[angular; linear]`` ordering of :mod:`robot_dynamics.utils.spatial`.
-        """
         S = np.zeros(6)
         if self.joint_type == 'revolute':
             S[:3] = self.axis
@@ -136,30 +123,23 @@ class Joint:
 
 
 class Robot:
-    """A fixed-base serial chain of arbitrary length.
+    """
+    A fixed-base serial chain of arbitrary length.
 
-    Parameters
-    ----------
-    links, joints:
-        Equal-length sequences. ``joints[i]`` drives ``links[i]``.
-    gravity:
-        Gravitational **acceleration** in the base frame, default
-        ``[0, 0, -9.81]``. Set it to zeros to switch gravity off (Phase 11's
-        ``g = 0 => G(q) = 0`` check).
-    name:
-        Optional label.
+    Parameters -->
+    links, joints: Equal-length sequences, joints[i] drives links[i].
+    gravity: Gravitational acceleration in the base frame, default
+             [0, 0, -9.81].
+    name: Optional label.
 
-    Notes
-    -----
     Dynamics methods live on this class but are implemented in
-    :mod:`robot_dynamics.dynamics`; they are attached at import time to keep the
-    model free of algorithm code. The ``method=`` argument selects between
-    independent backends, which is how the test suite cross-validates them.
+    robot_dynamics.dynamics; they are attached at import time to keep the
+    model free of algorithm code.
     """
 
     def __init__(self, links: Sequence[Link], joints: Sequence[Joint],
                  gravity: ArrayLike = (0.0, 0.0, -9.81),
-                 name: str = 'robot') -> None:
+                 name: str = 'robot'):
         if len(links) != len(joints):
             raise ValueError(f'need one joint per link: got {len(links)} links '
                              f'and {len(joints)} joints')
@@ -170,13 +150,12 @@ class Robot:
         self.gravity = np.asarray(gravity, dtype=float).reshape(3)
         self.name = name
         # Serial chain: link i's parent is link i-1, and -1 denotes the fixed base.
-        # Stored explicitly so the recursive algorithms are written against a
-        # parent array and would extend to a branched tree without change.
+        # Stored here so the algorithms are written against a parent array.
         self.parent = [i - 1 for i in range(self.n)]
 
     @property
     def n(self) -> int:
-        """Number of degrees of freedom."""
+        # No. of degrees of freedom
         return len(self.joints)
 
     def __repr__(self) -> str:
@@ -190,16 +169,13 @@ class Robot:
         return float(sum(link.mass for link in self.links))
 
     def validate(self) -> None:
-        """Check every link is physically realisable."""
+        # Checking every link is physically valid.
         for link in self.links:
             link.validate_physical()
 
     def check_q(self, *arrays: ArrayLike) -> tuple[NDArray, ...]:
-        """Coerce joint-space arrays to shape ``(n,)`` floats, or raise.
-
-        Centralised so every entry point gives the same error message instead of
-        failing later inside a matrix product with an unhelpful shape mismatch.
-        """
+        """Convert joint-space arrays to 1D float arrays of shape (n,), or raise an error.
+           Centralizing this check catches shape issues early and provides a clear, consistent error message."""
         out = []
         for a in arrays:
             v = np.asarray(a, dtype=float).reshape(-1)
@@ -211,7 +187,7 @@ class Robot:
 
     def random_configuration(self, rng: np.random.Generator | None = None,
                              scale: float = 1.0) -> NDArray:
-        """A random ``q``, respecting joint limits where they are defined."""
+        # A random q, which gives joint limits where they are defined.
         rng = rng or np.random.default_rng()
         q = np.empty(self.n)
         for i, j in enumerate(self.joints):

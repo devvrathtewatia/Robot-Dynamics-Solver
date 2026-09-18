@@ -1,23 +1,21 @@
-"""Homogeneous (4x4) transformations.
+r"""Homogeneous (4x4) transformations.
+
+Compute the exact inverse of a rigid transformation matrix using its closed-form solution rather than a general matrix inverse:
 
 .. math::
 
-    T = \\begin{bmatrix} R & p \\\\ 0 & 1 \\end{bmatrix}
-    \\qquad
-    T^{-1} = \\begin{bmatrix} R^\\top & -R^\\top p \\\\ 0 & 1 \\end{bmatrix}
+T^{-1} = \begin{bmatrix} R^\top & -R^\top p \\ 0 & 1 \end{bmatrix}
 
-:func:`transform_inverse` uses that closed form rather than a general matrix
-inverse: it is exact, cheaper, and cannot drift away from being a valid rigid
-transform the way a numerically inverted matrix can.
+This method is faster, exact, and prevents numerical drift from a valid rigid transform.
 """
 from __future__ import annotations
 
-import numpy as np
-from numpy.typing import ArrayLike, NDArray
+import numpy as np  # pyright: ignore[reportMissingImports]
+from numpy.typing import ArrayLike, NDArray  # pyright: ignore[reportMissingImports]
 
 
-def transform(R: ArrayLike, p: ArrayLike) -> NDArray:
-    """Assemble a 4x4 homogeneous transform from a rotation and a translation."""
+def transform(R: ArrayLike, p: ArrayLike):
+    # Assembling our 4x4 homogeneous transform from rotation + translation
     R = np.asarray(R)
     p = np.asarray(p).reshape(3)
     if R.shape != (3, 3):
@@ -29,8 +27,8 @@ def transform(R: ArrayLike, p: ArrayLike) -> NDArray:
     return T
 
 
-def transform_inverse(T: ArrayLike) -> NDArray:
-    """Inverse of a homogeneous transform, in closed form."""
+def transform_inverse(T: ArrayLike):
+    # Inverse of a homogeneous transform
     T = np.asarray(T)
     if T.shape != (4, 4):
         raise ValueError(f'transform_inverse expects 4x4, got {T.shape}')
@@ -39,23 +37,23 @@ def transform_inverse(T: ArrayLike) -> NDArray:
 
 
 def rotation_of(T: ArrayLike) -> NDArray:
-    """Extract the rotation block."""
+    # Extract the rotation block from a homogeneous transform
     return np.asarray(T)[:3, :3]
 
 
 def translation_of(T: ArrayLike) -> NDArray:
-    """Extract the translation block."""
+    # Extract the translation block from a homogeneous transform
     return np.asarray(T)[:3, 3]
 
 
 def transform_point(T: ArrayLike, p: ArrayLike) -> NDArray:
-    """Apply a homogeneous transform to a 3D point."""
+    # Apply a homogeneous transform to a 3D point
     T = np.asarray(T)
     return T[:3, :3] @ np.asarray(p).reshape(3) + T[:3, 3]
 
 
 def compose(*transforms: ArrayLike) -> NDArray:
-    """Left-to-right product of homogeneous transforms."""
+    # Left-to-right product of homogeneous transforms.
     if not transforms:
         return np.eye(4)
     out = np.asarray(transforms[0])
@@ -64,15 +62,10 @@ def compose(*transforms: ArrayLike) -> NDArray:
     return out
 
 
-def adjoint(T: ArrayLike) -> NDArray:
-    """The 6x6 adjoint mapping a twist ``[v; omega]`` between frames.
+def adjoint(T: ArrayLike):
 
-    Note the ordering: this library uses ``[linear; angular]`` for *geometric*
-    Jacobians and twists, but ``[angular; linear]`` for the *spatial* (Plucker)
-    vectors of :mod:`robot_dynamics.utils.spatial`, following Featherstone. The two
-    conventions are kept in separate modules on purpose; mixing them is the classic
-    source of sign errors in dynamics code.
-    """
+    # The 6x6 adjoint mapping a twist between frames.
+
     T = np.asarray(T)
     from .rotations import skew  # local: avoid a cycle
     R, p = T[:3, :3], T[:3, 3]

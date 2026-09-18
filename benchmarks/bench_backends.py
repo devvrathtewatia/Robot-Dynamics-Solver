@@ -1,30 +1,31 @@
-"""Backend cost against the number of degrees of freedom.
+# Backend cost against the number of degrees of freedom.
+# Confirms the asymptotic claims empirically rather than only asserting them:
+# RNEA and ABA are O(n), CRBA is O(n^2), and the Lagrangian route is O(n^3) because
+# it assembles per-link Jacobians and, for the Coriolis matrix, differentiates the
+# mass matrix n times.
+#
+# The Lagrangian backend is not the one to use in a loop. It exists because it is the
+# formulation being taught, and because it validates the fast ones.
 
-Confirms the asymptotic claims empirically rather than only asserting them:
-RNEA and ABA are O(n), CRBA is O(n^2), and the Lagrangian route is O(n^3) because
-it assembles per-link Jacobians and, for the Coriolis matrix, differentiates the
-mass matrix n times.
-
-The Lagrangian backend is not the one to use in a loop. It exists because it is the
-formulation being taught, and because it validates the fast ones.
-"""
 from __future__ import annotations
+from robot_dynamics.dynamics import crba, lagrangian, rnea
+import robot_dynamics as rd
 
 import os
 import sys
 import time
+import importlib
 
-import numpy as np
+# Keep NumPy as a runtime dependency of this benchmark without requiring the
+# editor's analysis environment to have its stubs installed.
+np = importlib.import_module('numpy')
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                 '..', 'src'))
 
-import robot_dynamics as rd
-from robot_dynamics.dynamics import crba, lagrangian, rnea
-
 
 def timeit(fn, repeats: int = 30) -> float:
-    """Median seconds per call, which is robust to a stray slow sample."""
+    # Median seconds per call, which is robust to a stray slow sample.
     samples = []
     for _ in range(repeats):
         t0 = time.perf_counter()
@@ -48,6 +49,7 @@ def main() -> None:
         tau = rng.normal(size=n)
         # Loop variables are bound as default arguments so each closure captures
         # the current robot rather than the last one - the classic late-binding trap.
+
         def _rnea_id(r=robot, a=q, b=qd, c=qdd):
             return rnea.inverse_dynamics(r, a, b, c)
 
@@ -85,7 +87,7 @@ def main() -> None:
                           ('aba_fd', 1), ('lag_fd', 3)):
         ys = np.array([r[1][key] for r in rows if r[0] >= 4])
         slope = np.polyfit(np.log(ns), np.log(ys), 1)[0]
-        print(f'  {key:<10} {slope:4.2f}   (expected about {expected})')
+        print(f'  {key:<10} {slope:4.2f}    (expected about {expected})')
 
 
 if __name__ == '__main__':

@@ -1,22 +1,24 @@
-"""Phases 7, 8, 11, 12, 13, 14 and 19: the dynamics validation suite.
+# Phases 7, 8, 11, 12, 13, 14 and 19: the dynamics validation suite.
+#
+# Organised by *what kind of evidence* each test provides, because that is what
+# determines how much it is worth:
+#
+# * **analytic** — against an independent hand derivation. The anchor.
+# * **structural** — properties any correct model must have.
+# * **isolation** — each term switched off in turn.
+# * **round trip** — inverse then forward dynamics recovers the input.
+# * **cross-backend** — independent implementations agree.
+#
+# Property tests alone can only prove self-consistency: a model could satisfy every
+# one of them and still describe the wrong robot. The analytic and symbolic tests are
+# what rule that out.
 
-Organised by *what kind of evidence* each test provides, because that is what
-determines how much it is worth:
+# pylint: disable=no-member
 
-* **analytic** — against an independent hand derivation. The anchor.
-* **structural** — properties any correct model must have.
-* **isolation** — each term switched off in turn.
-* **round trip** — inverse then forward dynamics recovers the input.
-* **cross-backend** — independent implementations agree.
-
-Property tests alone can only prove self-consistency: a model could satisfy every
-one of them and still describe the wrong robot. The analytic and symbolic tests are
-what rule that out.
-"""
 from __future__ import annotations
 
-import numpy as np
-import pytest
+import numpy as np  # pyright: ignore[reportMissingImports]
+import pytest  # pyright: ignore[reportMissingImports]
 
 from robot_dynamics import (
     analytic_two_dof,
@@ -68,7 +70,7 @@ def _state(robot, scale=0.8):
     (-2.2, 0.15, 0.03, -2.0), (np.pi / 2, np.pi / 2, 1.0, 1.0),
 ])
 def test_two_dof_matches_the_closed_form(q1, q2, qd1, qd2):
-    """The single most valuable test: an external hand derivation."""
+    # The single most valuable test: an external hand derivation.
     params = {'m1': 1.3, 'm2': 0.8, 'l1': 0.9, 'l2': 0.6,
               'I1': 0.11, 'I2': 0.07}
     robot = two_dof_planar(**params)
@@ -86,9 +88,8 @@ def test_two_dof_matches_the_closed_form(q1, q2, qd1, qd2):
 
 
 def test_single_pendulum_against_the_textbook_equation():
-    r"""A one-link arm must satisfy
-    :math:`(I + m l_c^2)\ddot\theta + m g l_c\cos\theta = \tau`.
-    """
+    # A one-link arm must satisfy
+    # (I + m l_c^2) * qdd + m * g * l_c * cos(theta) = tau.
     m, L, lc, Izz = 2.0, 1.0, 0.5, 0.15
     robot = two_dof_planar(m1=m, l1=L, lc1=lc, I1=Izz)
     robot.links = robot.links[:1]
@@ -108,7 +109,7 @@ def test_single_pendulum_against_the_textbook_equation():
 # =====================================================================
 @pytest.mark.parametrize('name,robot', ROBOTS, ids=IDS)
 def test_mass_matrix_is_symmetric(name, robot):
-    r""":math:`M = M^\top`, checked before the library's own symmetrisation."""
+    # M = M.T, checked before the library's own symmetrisation.
     for _ in range(5):
         q = robot.random_configuration(RNG)
         for method in ('lagrangian', 'crba', 'rnea'):
@@ -118,11 +119,10 @@ def test_mass_matrix_is_symmetric(name, robot):
 
 @pytest.mark.parametrize('name,robot', ROBOTS, ids=IDS)
 def test_mass_matrix_is_positive_definite(name, robot):
-    r""":math:`x^\top M x > 0` for all nonzero x, i.e. every eigenvalue positive.
-
-    Physically: no direction of joint motion can have zero or negative kinetic
-    energy. This is also the precondition for the Cholesky solve in forward dynamics.
-    """
+    # x.T * M * x > 0 for all nonzero x, i.e. every eigenvalue positive.
+    #
+    # Physically: no direction of joint motion can have zero or negative kinetic
+    # energy. This is also the precondition for the Cholesky solve in forward dynamics.
     for _ in range(5):
         q = robot.random_configuration(RNG)
         M = robot.mass_matrix(q)
@@ -135,14 +135,13 @@ def test_mass_matrix_is_positive_definite(name, robot):
 
 @pytest.mark.parametrize('name,robot', ROBOTS, ids=IDS)
 def test_mdot_minus_2c_is_skew_symmetric(name, robot):
-    r""":math:`\dot M - 2C` skew-symmetric — the passivity property.
-
-    Not required merely for elegance: it is what makes the standard Lyapunov proof of
-    computed-torque stability valid, and it holds only for the Christoffel
-    factorisation of C. A different but numerically valid factorisation of the same
-    :math:`C\dot q` would fail here, so this test pins down the factorisation, not
-    just the product.
-    """
+    # Mdot - 2C skew-symmetric — the passivity property.
+    #
+    # Not required merely for elegance: it is what makes the standard Lyapunov proof of
+    # computed-torque stability valid, and it holds only for the Christoffel
+    # factorisation of C. A different but numerically valid factorisation of the same
+    # C * qd would fail here, so this test pins down the factorisation, not
+    # just the product.
     q, qd, _ = _state(robot)
     C = robot.coriolis(q, qd)
     dM = lagrangian.mass_matrix_derivative(robot, q)
@@ -165,7 +164,7 @@ def test_kinetic_energy_is_consistent_with_the_mass_matrix(name, robot):
 # =====================================================================
 @pytest.mark.parametrize('name,robot', ROBOTS, ids=IDS)
 def test_at_rest_the_torque_is_pure_gravity(name, robot):
-    r""":math:`\dot q = \ddot q = 0 \Rightarrow \tau = G(q)`."""
+    # qd = 0, qdd = 0 => tau = G(q).
     q = robot.random_configuration(RNG)
     z = np.zeros(robot.n)
     G = robot.gravity_torque(q)
@@ -176,7 +175,7 @@ def test_at_rest_the_torque_is_pure_gravity(name, robot):
 
 @pytest.mark.parametrize('name,robot', ROBOTS, ids=IDS)
 def test_no_gravity_means_no_gravity_torque(name, robot):
-    r""":math:`g = 0 \Rightarrow G(q) = 0`."""
+    # g = 0 => G(q) = 0.
     saved = robot.gravity.copy()
     try:
         robot.gravity = np.zeros(3)
@@ -190,7 +189,7 @@ def test_no_gravity_means_no_gravity_torque(name, robot):
 
 @pytest.mark.parametrize('name,robot', ROBOTS, ids=IDS)
 def test_zero_acceleration_leaves_coriolis_plus_gravity(name, robot):
-    r""":math:`\ddot q = 0 \Rightarrow \tau = C\dot q + G`."""
+    # qdd = 0 => tau = C * qd + G.
     q, qd, _ = _state(robot)
     z = np.zeros(robot.n)
     expected = robot.coriolis(q, qd) @ qd + robot.gravity_torque(q)
@@ -199,7 +198,7 @@ def test_zero_acceleration_leaves_coriolis_plus_gravity(name, robot):
 
 @pytest.mark.parametrize('name,robot', ROBOTS, ids=IDS)
 def test_zero_velocity_leaves_inertia_plus_gravity(name, robot):
-    r""":math:`\dot q = 0 \Rightarrow \tau = M\ddot q + G`."""
+    # qd = 0 => tau = M * qdd + G.
     q, _, qdd = _state(robot)
     z = np.zeros(robot.n)
     expected = robot.mass_matrix(q) @ qdd + robot.gravity_torque(q)
@@ -207,7 +206,7 @@ def test_zero_velocity_leaves_inertia_plus_gravity(name, robot):
 
 
 def test_a_gantry_has_no_velocity_product_terms():
-    """A purely prismatic chain has a constant M, so C must vanish identically."""
+    # A purely prismatic chain has a constant M, so C must vanish identically.
     robot = prismatic_chain(3)
     q, qd = RNG.uniform(-0.4, 0.4, 3), RNG.normal(size=3)
     assert np.allclose(robot.coriolis(q, qd), 0.0, atol=1e-12)
@@ -220,7 +219,7 @@ def test_a_gantry_has_no_velocity_product_terms():
 # =====================================================================
 @pytest.mark.parametrize('name,robot', ROBOTS, ids=IDS)
 def test_inverse_dynamics_equals_the_assembled_terms(name, robot):
-    r"""Phase 7: :math:`\tau_{\text{direct}} \approx M\ddot q + C\dot q + G`."""
+    # Phase 7: tau_direct ≈ M * qdd + C * qd + G.
     q, qd, qdd = _state(robot)
     assembled = (robot.mass_matrix(q) @ qdd
                  + robot.coriolis(q, qd) @ qd
@@ -233,7 +232,7 @@ def test_inverse_dynamics_equals_the_assembled_terms(name, robot):
 @pytest.mark.parametrize('name,robot', ROBOTS, ids=IDS)
 @pytest.mark.parametrize('fd_method', ['aba', 'lagrangian'])
 def test_forward_inverse_round_trip(name, robot, fd_method):
-    r"""Phase 8: :math:`\ddot q \to \tau \to \ddot q` recovers the input."""
+    # Phase 8: qdd -> tau -> qdd recovers the input.
     for _ in range(3):
         q, qd, qdd = _state(robot)
         tau = robot.inverse_dynamics(q, qd, qdd)
@@ -243,7 +242,7 @@ def test_forward_inverse_round_trip(name, robot, fd_method):
 
 @pytest.mark.parametrize('name,robot', ROBOTS, ids=IDS)
 def test_round_trip_the_other_way(name, robot):
-    r""":math:`\tau \to \ddot q \to \tau`."""
+    # tau -> qdd -> tau.
     q, qd, _ = _state(robot)
     tau = RNG.normal(size=robot.n)
     qdd = robot.forward_dynamics(q, qd, tau)
@@ -255,11 +254,10 @@ def test_round_trip_the_other_way(name, robot):
 # =====================================================================
 @pytest.mark.parametrize('name,robot', ROBOTS, ids=IDS)
 def test_lagrange_agrees_with_rnea(name, robot):
-    r"""Phase 12: :math:`\tau_{\text{Lagrange}} \approx \tau_{\text{RNEA}}`.
-
-    Two formalisms, sharing only the kinematic model. The strongest single piece of
-    evidence in the suite.
-    """
+    # Phase 12: tau_Lagrange ≈ tau_RNEA.
+    #
+    # Two formalisms, sharing only the kinematic model. The strongest single piece of
+    # evidence in the suite.
     for _ in range(5):
         q, qd, qdd = _state(robot)
         tl = lagrangian.inverse_dynamics(robot, q, qd, qdd)
@@ -270,7 +268,7 @@ def test_lagrange_agrees_with_rnea(name, robot):
 
 @pytest.mark.parametrize('name,robot', ROBOTS, ids=IDS)
 def test_lagrange_agrees_with_crba(name, robot):
-    r"""Phase 13: :math:`M_{\text{Lagrange}} \approx M_{\text{CRBA}}`."""
+    # Phase 13: M_Lagrange ≈ M_CRBA.
     for _ in range(5):
         q = robot.random_configuration(RNG)
         Ml = lagrangian.mass_matrix(robot, q)
@@ -283,7 +281,7 @@ def test_lagrange_agrees_with_crba(name, robot):
 
 @pytest.mark.parametrize('name,robot', ROBOTS, ids=IDS)
 def test_lagrange_agrees_with_aba(name, robot):
-    r"""Phase 14: :math:`\ddot q_{\text{Lagrange}} \approx \ddot q_{\text{ABA}}`."""
+    # Phase 14: qdd_Lagrange ≈ qdd_ABA.
     for _ in range(5):
         q, qd, _ = _state(robot)
         tau = RNG.normal(size=robot.n)
@@ -295,12 +293,11 @@ def test_lagrange_agrees_with_aba(name, robot):
 
 @pytest.mark.parametrize('name,robot', ROBOTS, ids=IDS)
 def test_coriolis_matrix_product_matches_the_recursive_vector(name, robot):
-    r""":math:`C(q,\dot q)\dot q` from Christoffel symbols vs from RNEA.
-
-    The sharpest test of the Lagrangian layer: it exercises M, its derivative and the
-    factorisation simultaneously. A wrong axis permutation in the Christoffel tensor
-    is invisible to every other test here and shows up as ~1e-1 in this one.
-    """
+    # C(q, qd) * qd from Christoffel symbols vs from RNEA.
+    #
+    # The sharpest test of the Lagrangian layer: it exercises M, its derivative and the
+    # factorisation simultaneously. A wrong axis permutation in the Christoffel tensor
+    # is invisible to every other test here and shows up as ~1e-1 in this one.
     for _ in range(5):
         q, qd, _ = _state(robot)
         via_matrix = robot.coriolis(q, qd) @ qd
@@ -311,11 +308,10 @@ def test_coriolis_matrix_product_matches_the_recursive_vector(name, robot):
 
 @pytest.mark.parametrize('method', ['central', 'forward'])
 def test_complex_step_derivative_agrees_with_finite_differences(method):
-    """Validate the exact derivative against the approximate ones.
-
-    Confirms the complex step is right, and quantifies how much accuracy a finite
-    difference would have cost: central loses about six digits, forward about eight.
-    """
+    # Validate the exact derivative against the approximate ones.
+    #
+    # Confirms the complex step is right, and quantifies how much accuracy a finite
+    # difference would have cost: central loses about six digits, forward about eight.
     robot = spatial_chain(5)
     q = robot.random_configuration(RNG)
     exact = lagrangian.mass_matrix_derivative(robot, q, method='complex')
@@ -337,7 +333,7 @@ def test_unknown_backend_names_are_rejected():
 
 
 def test_degenerate_model_raises_rather_than_returning_nonsense():
-    """A massless-in-effect model should fail loudly, not return garbage."""
+    # A massless-in-effect model should fail loudly, not return garbage.
     from robot_dynamics import Joint, Link, Robot
     # A link whose inertia about the joint axis is below the solver's threshold:
     # the joint cannot resist any torque, so the acceleration is unbounded.

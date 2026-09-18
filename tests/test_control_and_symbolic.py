@@ -1,8 +1,11 @@
 """Phases 5, 9, 10 and 15: symbolic validation, wrenches, trajectories, control."""
+
+# pylint: disable=no-member
+
 from __future__ import annotations
 
-import numpy as np
-import pytest
+import numpy as np  # pyright: ignore[reportMissingImports]
+import pytest  # pyright: ignore[reportMissingImports]
 
 from robot_dynamics import (
     bimanual_arm,
@@ -35,13 +38,11 @@ sympy_required = pytest.mark.skipif(not symmod.HAVE_SYMPY,
                                    spatial_chain(2), planar_chain(3)],
                          ids=['planar2', 'twodof', 'spatial2', 'planar3'])
 def test_symbolic_derivation_matches_the_numerical_layer(robot):
-    """An independent derivation route: literal differentiation of ``L = T - V``.
-
-    This is what makes the numerical layer trustworthy rather than merely
-    self-consistent - it validates the closed-form Jacobian assembly for M, the
-    analytic gradient for G, and the complex-step derivative inside C, all against
-    exact symbolic differentiation.
-    """
+    # An independent derivation route: literal differentiation of L = T - V.
+    # This is what makes the numerical layer trustworthy rather than merely
+    # self-consistent - it validates the closed-form Jacobian assembly for M, the
+    # analytic gradient for G, and the complex-step derivative inside C, all against
+    # exact symbolic differentiation.
     model = symmod.symbolic_model(robot)
     qs, qds = model['q'], model['qd']
     for _ in range(4):
@@ -58,14 +59,10 @@ def test_symbolic_derivation_matches_the_numerical_layer(robot):
 
 @sympy_required
 def test_literal_euler_lagrange_matches_the_mcg_split():
-    r"""The :math:`M`, :math:`C`, :math:`G` split is a faithful rearrangement.
-
-    Confirms :math:`\tau_i = \frac{d}{dt}\frac{\partial L}{\partial\dot q_i}
-    - \frac{\partial L}{\partial q_i}` gives the same torque as
-    :math:`M\ddot q + C\dot q + G`, so the standard form is derived rather than
-    asserted.
-    """
-    import sympy as sp
+    # The M, C, G split is a faithful rearrangement.
+    # Confirms tau_i = d/dt (dL/dqd_i) - dL/dq_i gives the same torque as
+    # M*qdd + C*qd + G, so the standard form is derived rather than asserted.
+    import sympy as sp  # pyright: ignore[reportMissingModuleSource, reportMissingImports]
     robot = planar_chain(2)
     model = symmod.euler_lagrange(robot)
     diff = sp.simplify(model['tau_euler_lagrange'] - model['tau'])
@@ -74,7 +71,7 @@ def test_literal_euler_lagrange_matches_the_mcg_split():
 
 @sympy_required
 def test_lambdified_model_is_free_of_sympy_and_still_correct():
-    """The intended use of the symbolic layer: derive once, evaluate numerically."""
+    # The intended use of the symbolic layer: derive once, evaluate numerically.
     robot = planar_chain(2)
     compiled = symmod.lambdify_model(robot)
     q, qd = RNG.normal(size=2), RNG.normal(size=2)
@@ -87,11 +84,9 @@ def test_lambdified_model_is_free_of_sympy_and_still_correct():
 
 
 def test_numerical_layer_does_not_import_sympy():
-    """Enforce the architectural boundary the spec insists on.
-
-    Checked mechanically, not by convention: a stray ``import sympy`` in a hot path
-    is exactly the regression that turns a library back into a notebook.
-    """
+    # Enforce the architectural boundary the spec insists on.
+    # Checked mechanically, not by convention: a stray import sympy in a hot path
+    # is exactly the regression that turns a library back into a notebook.
     import inspect
     for module in (lagrangian, rnea):
         src = inspect.getsource(module)
@@ -105,14 +100,12 @@ def test_numerical_layer_does_not_import_sympy():
                                    random_robot(5, seed=21), bimanual_arm()],
                          ids=['planar3', 'spatial4', 'random5', 'bimanual6'])
 def test_external_wrench_enters_as_minus_jacobian_transpose_force(robot):
-    r"""Check :math:`\tau = M\ddot q + C\dot q + G - J^\top f_{\text{ext}}`.
-
-    Validates the spatial-force transform inside RNEA against the independent
-    Jacobian route. The two use entirely different machinery - Plucker transforms
-    versus geometric Jacobian columns - and the ``[angular; linear]`` versus
-    ``[linear; angular]`` ordering difference between them is precisely the kind of
-    convention slip this catches.
-    """
+    # Check tau = M*qdd + C*qd + G - J^T * f_ext.
+    # Validates the spatial-force transform inside RNEA against the independent
+    # Jacobian route. The two use entirely different machinery - Plucker transforms
+    # versus geometric Jacobian columns - and the [angular; linear] versus
+    # [linear; angular] ordering difference between them is precisely the kind of
+    # convention slip this catches.
     q, qd, qdd = (RNG.normal(size=robot.n) * 0.6 for _ in range(3))
     link = robot.n - 1
     wrench = RNG.normal(size=6) * 5.0            # [force; moment] in the base frame
@@ -148,11 +141,9 @@ def test_wrench_can_be_addressed_by_link_name():
 
 
 def test_a_vertical_force_at_the_tip_adds_the_expected_static_torque():
-    """A physical sanity check with a hand-computable answer.
-
-    A 2-link planar arm held straight out along x with a downward tip force must show
-    a joint torque equal to force times moment arm.
-    """
+    # A physical sanity check with a hand-computable answer.
+    # A 2-link planar arm held straight out along x with a downward tip force must show
+    # a joint torque equal to force times moment arm.
     robot = planar_chain(2, length=0.5, mass=1.0)
     q, z = np.zeros(2), np.zeros(2)
     force = 10.0
@@ -185,7 +176,7 @@ def test_polynomial_trajectory_meets_its_boundary_conditions(order):
 
 
 def test_quintic_derivatives_are_self_consistent():
-    """Check qd and qdd really are the derivatives of q."""
+    # Check qd and qdd really are the derivatives of q.
     traj = quintic(np.array([0.0, 1.0]), np.array([2.0, -1.0]), 3.0)
     h = 1e-6
     for t in (0.4, 1.5, 2.9):
@@ -221,7 +212,7 @@ def test_trajectory_rejects_bad_input():
 
 
 def test_torques_along_a_trajectory_are_finite_and_smooth():
-    """Phase 9's deliverable: feed a trajectory through inverse dynamics."""
+    # Phase 9's deliverable: feed a trajectory through inverse dynamics.
     robot = planar_chain(3)
     traj = quintic(np.zeros(3), np.array([1.0, -0.7, 0.4]), 2.0)
     _, qs, qds, qdds = traj.sample(dt=0.01)
@@ -236,12 +227,10 @@ def test_torques_along_a_trajectory_are_finite_and_smooth():
 # SIMULATION AND CONTROL (Phases 8, 10)
 # =====================================================================
 def test_a_passive_system_conserves_energy():
-    """RK4 on a torque-free arm must conserve ``T + V``.
-
-    Doubles as an integration test of forward dynamics: an error in M, C or G shows
-    up as energy drift even when every algebraic identity still holds, because those
-    identities are all evaluated at a single instant and this one accumulates.
-    """
+    # RK4 on a torque-free arm must conserve T + V.
+    # Doubles as an integration test of forward dynamics: an error in M, C or G shows
+    # up as energy drift even when every algebraic identity still holds, because those
+    # identities are all evaluated at a single instant and this one accumulates.
     robot = planar_chain(2, length=0.5, mass=1.0)
     result = simulate(robot, [0.4, -0.9], [0.0, 0.0], duration=2.0, dt=1e-3)
     E = energy_history(robot, result)
@@ -250,7 +239,7 @@ def test_a_passive_system_conserves_energy():
 
 
 def test_euler_integration_drifts_much_more_than_rk4():
-    """Justify the default integrator with a measurement rather than an assertion."""
+    # Justify the default integrator with a measurement rather than an assertion.
     robot = planar_chain(2)
     args = {'q0': [0.4, -0.9], 'qd0': [0.0, 0.0],
             'duration': 2.0, 'dt': 1e-3}
@@ -263,25 +252,22 @@ def test_euler_integration_drifts_much_more_than_rk4():
 
 
 def test_a_pendulum_released_from_rest_falls_the_right_way():
-    """Cheap physical plausibility check on the sign of gravity."""
+    # Cheap physical plausibility check on the sign of gravity.
     robot = planar_chain(1, length=0.5, mass=1.0)
     result = simulate(robot, [0.2], [0.0], duration=0.2, dt=1e-3)
     assert result['q'][-1, 0] < result['q'][0, 0]      # swings down, towards -y
 
 
 def test_computed_torque_tracks_far_better_than_pd_gravity():
-    r"""Phase 10's point: cancelling :math:`M` and :math:`C` linearises the error.
-
-    Both controllers get identical gains, trajectory and step size, so the difference
-    is attributable to the dynamics model and nothing else. Measured: computed torque
-    reaches ~1e-11 while PD-plus-gravity plateaus near 3e-2, a factor of about 1e9.
-
-    Gain choice is constrained by the *simulation*, not the controller. A PD loop
-    leaves a fast closed-loop pole at roughly :math:`k_d/M_{\min}`, so a large
-    :math:`k_d` on a chain with a small minimum inertia demands a tiny step. Here
-    :math:`k_d = 2\sqrt{k_p M_{\min}}` keeps the stiff direction critically damped and
-    the step at 1 ms. See ``test_pd_gain_limit_is_set_by_the_smallest_inertia``.
-    """
+    # Phase 10's point: cancelling M and C linearises the error.
+    # Both controllers get identical gains, trajectory and step size, so the difference
+    # is attributable to the dynamics model and nothing else. Measured: computed torque
+    # reaches ~1e-11 while PD-plus-gravity plateaus near 3e-2, a factor of about 1e9.
+    # Gain choice is constrained by the simulation, not the controller. A PD loop
+    # leaves a fast closed-loop pole at roughly kd/M_min, so a large
+    # kd on a chain with a small minimum inertia demands a tiny step. Here
+    # kd = 2*sqrt(kp * M_min) keeps the stiff direction critically damped and
+    # the step at 1 ms. See test_pd_gain_limit_is_set_by_the_smallest_inertia.
     robot = planar_chain(2)
     q0 = np.zeros(2)
     traj = quintic(q0, np.array([1.0, -0.6]), 1.0)
@@ -301,18 +287,15 @@ def test_computed_torque_tracks_far_better_than_pd_gravity():
 
 
 def test_pd_gain_limit_is_set_by_the_smallest_inertia():
-    """Record *why* fixed-gain PD is awkward on a manipulator.
-
-    The mass matrix of a serial chain is badly conditioned - the eigenvalue spread is
-    ~40x for a 2-link planar arm and >1300x for a 3-joint spatial one, because a wrist
-    roll about a slender link's own axis has almost no inertia. A single gain pair
-    therefore cannot suit every direction: whatever damps the heavy direction creates a
-    pole at k_d/M_min in the light one, and the integrator step must resolve it.
-
-    Computed torque escapes this entirely, since cancelling M makes the error dynamics
-    identical in every direction regardless of configuration. That is the practical
-    argument for model-based control, and it is measured here rather than asserted.
-    """
+    # Record why fixed-gain PD is awkward on a manipulator.
+    # The mass matrix of a serial chain is badly conditioned - the eigenvalue spread is
+    # ~40x for a 2-link planar arm and >1300x for a 3-joint spatial one, because a wrist
+    # roll about a slender link's own axis has almost no inertia. A single gain pair
+    # therefore cannot suit every direction: whatever damps the heavy direction creates a
+    # pole at kd/M_min in the light one, and the integrator step must resolve it.
+    # Computed torque escapes this entirely, since cancelling M makes the error dynamics
+    # identical in every direction regardless of configuration. That is the practical
+    # argument for model-based control, and it is measured here rather than asserted.
     ratios = {}
     for robot in (planar_chain(2), planar_chain(3), spatial_chain(3)):
         eig = np.linalg.eigvalsh(robot.mass_matrix(np.zeros(robot.n)))
@@ -324,7 +307,7 @@ def test_pd_gain_limit_is_set_by_the_smallest_inertia():
     robot = spatial_chain(3)
     traj = quintic(np.zeros(3), np.zeros(3), 1.0)
     ctrl = ComputedTorque.critically_damped(robot, natural_frequency=8.0,
-                                           trajectory=traj)
+                                            trajectory=traj)
     res = simulate(robot, [0.2, 0.2, 0.2], np.zeros(3), duration=1.0, dt=1e-3,
                    control=ctrl)
     assert np.all(np.isfinite(res['q']))
@@ -334,16 +317,14 @@ def test_pd_gain_limit_is_set_by_the_smallest_inertia():
 
 
 def test_computed_torque_error_decays_at_the_designed_rate():
-    r"""The closed loop should behave like :math:`\ddot e + K_d\dot e + K_p e = 0`.
-
-    Started deliberately off the trajectory, the error must decay towards zero at
-    roughly the designed natural frequency. This tests the *design claim*, not merely
-    that the simulation is stable.
-    """
+    # The closed loop should behave like qdd_e + Kd*qd_e + Kp*e = 0.
+    # Started deliberately off the trajectory, the error must decay towards zero at
+    # roughly the designed natural frequency. This tests the design claim, not merely
+    # that the simulation is stable.
     robot = planar_chain(2)
     traj = quintic(np.zeros(2), np.zeros(2), 2.0)      # hold the origin
     ctrl = ComputedTorque.critically_damped(robot, natural_frequency=10.0,
-                                           trajectory=traj)
+                                            trajectory=traj)
     res = simulate(robot, [0.3, -0.3], np.zeros(2), duration=2.0, dt=5e-4,
                    control=ctrl)
     err = np.abs(res['q'])
@@ -354,11 +335,9 @@ def test_computed_torque_error_decays_at_the_designed_rate():
 
 
 def test_feedforward_pd_also_tracks_well():
-    """Feedforward plus PD: nearly computed-torque accuracy at a fraction of the cost.
-
-    The feedforward term uses only the *planned* trajectory, so it can be evaluated
-    offline; what runs at servo rate is a fixed-gain PD loop.
-    """
+    # Feedforward plus PD: nearly computed-torque accuracy at a fraction of the cost.
+    # The feedforward term uses only the planned trajectory, so it can be evaluated
+    # offline; what runs at servo rate is a fixed-gain PD loop.
     robot = planar_chain(2)
     traj = quintic(np.zeros(2), np.array([0.8, -0.5]), 1.0)
     m_min = np.linalg.eigvalsh(robot.mass_matrix(np.zeros(2))).min()
@@ -371,11 +350,9 @@ def test_feedforward_pd_also_tracks_well():
 
 
 def test_a_deliberately_wrong_model_degrades_tracking():
-    """Computed torque is only exact when the model is - quantify the sensitivity.
-
-    Guards against the test suite flattering the controller by always handing it a
-    perfect model, which is never true on hardware.
-    """
+    # Computed torque is only exact when the model is - quantify the sensitivity.
+    # Guards against the test suite flattering the controller by always handing it a
+    # perfect model, which is never true on hardware.
     import copy
     robot = planar_chain(2)
     wrong = copy.deepcopy(robot)

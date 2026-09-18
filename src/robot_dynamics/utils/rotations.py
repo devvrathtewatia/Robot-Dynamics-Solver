@@ -1,20 +1,15 @@
-"""Rotation matrices and the skew-symmetric (cross-product) operator.
 
-Every function here is written so that a **complex** input propagates cleanly,
-because the Coriolis matrix is built from a complex-step derivative of the mass
-matrix (see :mod:`robot_dynamics.dynamics.lagrangian`). That rules out
-initialising results with ``np.eye``/``np.zeros`` at default float dtype and then
-assigning into them, which would silently discard the imaginary part. Building
-each matrix directly from a nested list lets NumPy promote the dtype instead.
-"""
+# We built rotation matrices and cross-product operations built to support complex numbers.
+# We avoid using standard np.zeros or np.eye because thier default types do not support complex numbers,
+# and we want to support complex-step differentiation.
+
 from __future__ import annotations
+import numpy as np  # pyright: ignore[reportMissingImports]
+from numpy.typing import ArrayLike, NDArray  # pyright: ignore[reportMissingImports]
 
-import numpy as np
-from numpy.typing import ArrayLike, NDArray
 
-
-def rot_x(theta: float) -> NDArray:
-    """Rotation of ``theta`` radians about the x-axis."""
+def rot_x(theta: float):
+    # Rotation of theta radians about the x-axis
     c, s = np.cos(theta), np.sin(theta)
     z, o = 0.0 * c, 1.0 + 0.0 * c          # keeps the dtype if theta is complex
     return np.array([[o, z, z],
@@ -22,8 +17,8 @@ def rot_x(theta: float) -> NDArray:
                      [z, s, c]])
 
 
-def rot_y(theta: float) -> NDArray:
-    """Rotation of ``theta`` radians about the y-axis."""
+def rot_y(theta: float):
+    # Rotation of theta radians about the y-axis.
     c, s = np.cos(theta), np.sin(theta)
     z, o = 0.0 * c, 1.0 + 0.0 * c
     return np.array([[c, z, s],
@@ -32,7 +27,7 @@ def rot_y(theta: float) -> NDArray:
 
 
 def rot_z(theta: float) -> NDArray:
-    """Rotation of ``theta`` radians about the z-axis."""
+    # Rotation of theta radians about the z-axis.
     c, s = np.cos(theta), np.sin(theta)
     z, o = 0.0 * c, 1.0 + 0.0 * c
     return np.array([[c, -s, z],
@@ -40,13 +35,9 @@ def rot_z(theta: float) -> NDArray:
                      [z, z, o]])
 
 
-def skew(v: ArrayLike) -> NDArray:
-    r"""Return :math:`[v]_\times`, the matrix with :math:`[v]_\times w = v \times w`.
-
-    >>> import numpy as np
-    >>> a, b = np.array([1.0, 2.0, 3.0]), np.array([4.0, 5.0, 6.0])
-    >>> bool(np.allclose(skew(a) @ b, np.cross(a, b)))
-    True
+def skew(v: ArrayLike):
+    """
+    Skew-symmetric matrix of a 3-vector, such that skew(v) @ w == np.cross(v, w)
     """
     v = np.asarray(v)
     if v.shape != (3,):
@@ -57,7 +48,7 @@ def skew(v: ArrayLike) -> NDArray:
                      [-v[1], v[0], z]])
 
 
-def unskew(S: ArrayLike) -> NDArray:
+def unskew(S: ArrayLike):
     """Inverse of :func:`skew`: recover the vector from a skew-symmetric matrix."""
     S = np.asarray(S)
     if S.shape != (3, 3):
@@ -66,15 +57,10 @@ def unskew(S: ArrayLike) -> NDArray:
 
 
 def rot_axis(axis: ArrayLike, theta: float) -> NDArray:
-    r"""Rotation of ``theta`` about an arbitrary axis, via Rodrigues' formula.
-
-    .. math:: R = I + \sin\theta\,[\hat a]_\times
-              + (1-\cos\theta)\,[\hat a]_\times^2
-
-    The axis is used as given and is **not** renormalised, so that a complex-step
-    perturbation of ``theta`` cannot be corrupted by a normalisation. Validate the
-    axis at model-construction time instead (:class:`~robot_dynamics.models.robot.Joint`
-    does this).
+    """
+    Rotation of theta about an arbitrary axis, via Rodrigues' formula.
+    The axis is not re-normalized to protect complex-step perturbations.
+    Validate it during model construction instead
     """
     a = np.asarray(axis, dtype=float)
     K = skew(a)
@@ -82,8 +68,8 @@ def rot_axis(axis: ArrayLike, theta: float) -> NDArray:
     return np.eye(3) + s * K + (1.0 - c) * (K @ K)
 
 
-def is_rotation(R: ArrayLike, tol: float = 1e-9) -> bool:
-    """True if ``R`` is orthonormal with determinant +1."""
+def is_rotation(R: ArrayLike, tol: float = 1e-9):
+    # True if R is orthonormal with determinant +1.
     R = np.asarray(R, dtype=float)
     if R.shape != (3, 3):
         return False
@@ -92,9 +78,5 @@ def is_rotation(R: ArrayLike, tol: float = 1e-9) -> bool:
 
 
 def rpy_to_matrix(roll: float, pitch: float, yaw: float) -> NDArray:
-    """Fixed-axis roll-pitch-yaw, ``R = Rz(yaw) Ry(pitch) Rx(roll)``.
-
-    This is the URDF/SDF convention, so link origins can be copied straight out of
-    a robot description.
-    """
+    # Fixed-axis roll-pitch-yaw, R = Rz(yaw) Ry(pitch) Rx(roll).
     return rot_z(yaw) @ rot_y(pitch) @ rot_x(roll)

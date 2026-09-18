@@ -1,8 +1,11 @@
-"""Phase 1 and 3: primitives, transforms, kinematics and Jacobians."""
+# Phase 1 and 3: primitives, transforms, kinematics and Jacobians.
+
+# pylint: disable=no-member
+
 from __future__ import annotations
 
-import numpy as np
-import pytest
+import numpy as np  # pyright: ignore[reportMissingImports]
+import pytest  # pyright: ignore[reportMissingImports]
 
 from robot_dynamics import Joint, Link, Robot, planar_chain, random_robot
 from robot_dynamics.kinematics import (
@@ -51,7 +54,7 @@ def test_rotations_compose_additively():
 
 
 def test_skew_reproduces_the_cross_product():
-    """The defining property, checked against NumPy as the spec asks."""
+    # The defining property, checked against NumPy as the spec asks.
     for _ in range(50):
         v, w = RNG.normal(size=3), RNG.normal(size=3)
         assert np.allclose(skew(v) @ w, np.cross(v, w))
@@ -79,7 +82,7 @@ def test_skew_rejects_bad_shapes():
 
 # ------------------------------------------------------------- transforms
 def test_transform_inverse_gives_identity():
-    r"""The Phase 1 requirement: :math:`T T^{-1} = I`."""
+    # The Phase 1 requirement: T * T^-1 = I.
     for _ in range(50):
         axis = RNG.normal(size=3)
         axis /= np.linalg.norm(axis)         # must be the SAME vector, normalised
@@ -118,19 +121,19 @@ def test_spatial_inertia_is_symmetric_and_has_the_right_mass():
 
 # ------------------------------------------------------------- kinematics
 def test_two_dof_forward_kinematics_against_hand_derivation():
-    """Manually derived 2-DOF planar case, as the spec requires."""
+    # Manually derived 2-DOF planar case, as the spec requires.
     l1 = 1.0
     robot = planar_chain(2, length=l1)
     for q1, q2 in [(0.0, 0.0), (np.pi / 2, 0.0), (0.3, -0.8), (1.1, 2.2)]:
         T = forward_kinematics(robot, [q1, q2])
-        # The chain's last frame sits at the *base* of link 2, one link out.
+        # The chain's last frame sits at the base of link 2, one link out.
         expected = np.array([l1 * np.cos(q1), l1 * np.sin(q1), 0.0])
         assert np.allclose(T[:3, 3], expected, atol=1e-12)
         assert np.allclose(T[:3, :3], rot_z(q1 + q2), atol=1e-12)
 
 
 def test_three_dof_tip_position_against_hand_derivation():
-    """Tip of a 3-link planar arm, from the closed-form sum of link vectors."""
+    # Tip of a 3-link planar arm, from the closed-form sum of link vectors.
     L = 0.4
     robot = planar_chain(3, length=L)
     q = np.array([0.2, -0.5, 0.9])
@@ -152,11 +155,9 @@ def test_all_link_transforms_are_rigid():
 
 @pytest.mark.parametrize('n', [2, 3, 4, 5, 6, 8])
 def test_jacobian_matches_a_numerical_derivative(n):
-    r"""Verify :math:`\dot x = J\dot q` against a finite-difference of the pose.
-
-    The Jacobian is the bridge to control, so an error here would silently corrupt
-    the mass matrix as well - both are built from the same columns.
-    """
+    # Verify dot(x) = J * dot(q) against a finite-difference of the pose.
+    # The Jacobian is the bridge to control, so an error here would silently corrupt
+    # the mass matrix as well - both are built from the same columns.
     robot = random_robot(n, seed=n)
     q = robot.random_configuration(RNG)
     J = jacobian(robot, q)
@@ -175,7 +176,7 @@ def test_jacobian_matches_a_numerical_derivative(n):
 
 
 def test_jacobian_columns_beyond_the_link_are_zero():
-    """A joint downstream of a body cannot move it."""
+    # A joint downstream of a body cannot move it.
     robot = random_robot(5, seed=9)
     q = robot.random_configuration(RNG)
     for i in range(robot.n):
