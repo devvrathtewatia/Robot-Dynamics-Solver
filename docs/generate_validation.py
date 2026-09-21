@@ -4,11 +4,12 @@ Run as::
 
     python docs/generate_validation.py > docs/validation.md
 
-CI regenerates the report and fails if the committed file is stale.  The
-report intentionally does not embed the local Python/NumPy version because
-those are environment metadata, not validation measurements, and would make
-an otherwise identical report differ across machines or interpreter patch
-versions.
+CI regenerates the report and checks its structure and explanatory text
+against the committed snapshot. Floating-point measurements are allowed to vary
+at the machine-precision level across environments; the numerical test suite
+provides the actual correctness gates. The report intentionally does not embed
+the local Python/NumPy version because those are environment metadata, not
+validation measurements.
 """
 
 from __future__ import annotations
