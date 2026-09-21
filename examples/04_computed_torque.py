@@ -1,4 +1,4 @@
-"""Phase 10: model-based control, and the tracking error it buys.
+"""Compare model-based controllers on the same trajectory.
 
 Runs PD-plus-gravity and computed torque on the same arm with the same gains and the
 same trajectory, so the difference is attributable to the dynamics model alone.

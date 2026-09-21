@@ -1,8 +1,7 @@
 """Ready-made robot models, plus closed-form references to validate against.
 
-The builders take ``n`` as an argument rather than existing in per-DOF variants —
-:func:`planar_chain` and :func:`spatial_chain` generate any number of joints, which
-is how the test suite runs one identical API over ``n = 2..8``.
+The builders take ``n`` as an argument. :func:`planar_chain` and
+:func:`spatial_chain` generate different chain sizes through the same API.
 """
 from __future__ import annotations
 
@@ -92,9 +91,8 @@ def random_robot(n: int, seed: int = 0, prismatic_fraction: float = 0.0
                  ) -> Robot:
     """A randomly generated ``n``-DOF chain — random axes, frames and inertias.
 
-    The strongest generality test available: nothing about the geometry is aligned
-    or symmetric, so any accidental dependence on a special case shows up. Inertias
-    are built from random boxes, which guarantees they are physically valid.
+    Random axes, frames, and inertias exercise the generic path without relying on a
+    special geometry. The inertias come from random boxes, so they are physical.
     """
     rng = np.random.default_rng(seed)
     links, joints = [], []
@@ -122,8 +120,7 @@ def two_dof_planar(m1: float = 1.0, m2: float = 1.0,
                    g: float = 9.81) -> Robot:
     """The textbook 2-DOF planar arm, parameterised to match an analytic solution.
 
-    Pairs with :func:`analytic_two_dof` for the Phase 19 check against a hand
-    derivation. Inertias are set as pure ``Izz`` values with tiny transverse terms,
+    Pairs with :func:`analytic_two_dof` for the closed-form validation check. Inertias are set as pure ``Izz`` values with tiny transverse terms,
     exactly as the planar derivation assumes.
     """
     lc1 = l1 / 2.0 if lc1 is None else lc1

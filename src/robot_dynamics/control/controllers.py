@@ -1,17 +1,11 @@
-# Model-based controllers.
-# Two controllers chosen because the contrast between them is the clearest
-# demonstration of what a dynamics model buys you:
-# PD plus gravity compensation cancels only gravity. It guarantees asymptotic tracking
-# of a constant setpoint, but during motion inertial and Coriolis terms act as disturbances.
-# Computed torque additionally cancels M and C, collapsing the error
-# system to a linear, decoupled plant.
+"""Model-based controllers for joint-space trajectory tracking."""
 
 from __future__ import annotations
 
 from typing import Protocol
 
-import numpy as np  # pyright:ignore[reportMissingImports]
-from numpy.typing import ArrayLike  # pyright:ignore[reportMissingImports]
+import numpy as np
+from numpy.typing import ArrayLike
 
 from ..models.robot import Robot
 
@@ -23,7 +17,7 @@ class Trajectory(Protocol):
 
 
 def _gains(value: ArrayLike, n: int, label: str):
-    # Accept a scalar, a length-n vector, or a full matrix; return (n, n).
+    # Accept scalar, vector, or matrix gains and return an (n, n) matrix.
     arr = np.asarray(value, dtype=float)
     if arr.ndim == 0:
         return np.eye(n) * float(arr)
@@ -79,7 +73,7 @@ class ComputedTorque:
     def critically_damped(cls, robot: Robot, natural_frequency: float,
                           trajectory: Trajectory,
                           model: Robot | None = None):
-        # Build gains for a critically damped error response (Kd = 2*omega, Kp = omega^2).
+        # Choose gains for a critically damped second-order error model.
         w = float(natural_frequency)
         return cls(robot, kp=w ** 2, kd=2.0 * w, trajectory=trajectory,
                    model=model)

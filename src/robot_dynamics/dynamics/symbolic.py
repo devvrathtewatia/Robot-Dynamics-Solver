@@ -6,10 +6,10 @@ from typing import Any
 from ..models.robot import Robot
 
 try:
-    import sympy as sp  # type: ignore[reportMissingModuleSource]
+    import sympy as sp
     HAVE_SYMPY = True
 except ImportError:                                    # pragma: no cover
-    sp = None                                          # type: ignore[assignment]
+    sp = None
     HAVE_SYMPY = False
 
 

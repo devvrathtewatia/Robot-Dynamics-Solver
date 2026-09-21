@@ -1,4 +1,4 @@
-"""Phase 9's deliverable: a trajectory, and the joint torques it demands.
+"""Generate a trajectory and the joint torques it requires.
 
 Plots q(t), qd(t), qdd(t) and tau(t) for every joint - the figure the README asks
 for. Reading the torque plot is the point: the peaks say what the actuators must

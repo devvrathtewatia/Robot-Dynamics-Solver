@@ -1,13 +1,11 @@
-# This does calculation for any Generic forward kinematics and Jacobians
-# for a serial chain of any length. The D type-transparent design preserves
-# us from having to write separate code for float and complex types. DUe to thus,
-# the Lagrangian backend can take a complex-step derivative of the mass
-# matrix without a separate symbolic path.
+# Forward kinematics and Jacobians for a serial chain of arbitrary length.
+# The routines preserve float and complex dtypes so complex-step differentiation
+# can use the same numerical code path.
 
 from __future__ import annotations
 
-import numpy as np  # pyright: ignore[reportMissingImports]
-from numpy.typing import ArrayLike, NDArray  # pyright: ignore[reportMissingImports]
+import numpy as np
+from numpy.typing import ArrayLike, NDArray
 
 from ..models.robot import Robot
 from ..utils.spatial import plucker
@@ -41,7 +39,7 @@ def com_positions(robot: Robot, q: ArrayLike):
 
 def _axes_and_origins(robot: Robot, Ts: list[NDArray]):
     # Joint axis and frame origin for every joint wrt to world frame.
-    # These are used to compute Jacobians.
+    # Used to assemble geometric Jacobians.
     axes, origins = [], []
     for i, joint in enumerate(robot.joints):
         R, p = Ts[i][:3, :3], Ts[i][:3, 3]
@@ -53,10 +51,8 @@ def _axes_and_origins(robot: Robot, Ts: list[NDArray]):
 
 
 def point_jacobian(robot: Robot, q: ArrayLike, point: ArrayLike, up_to: int):
-    # Jacobian of a point rigidly attached to link wrt to worlf frame.
-    # Returns a (6, n) geometric Jacobian matrix ([p{dot} w] = J(q) q{dot}).
-    # Columns for joints that are after up_to becomes 0,ensuring correct
-    # matrix assembly from the Jacobians.
+    # Geometric Jacobian of a point attached to a link, in the world frame.
+    # The columns after `up_to` remain zero because those joints do not affect the point.
     q = np.asarray(q).reshape(-1)
     Ts = link_transforms(robot, q)
     axes, origins = _axes_and_origins(robot, Ts)

@@ -1,14 +1,10 @@
 
-# This modules containes Featherstone's spatial vector algebra, which is used in the RNEA, CRBA and ABA algorithms.
-# It defines spatial motion and force vectors, as well as operations on them such as cross products and transformations.
-# The module also includes functions for constructing spatial inertia
-# matrices and converting between different conventions for representing
-# motion and force vectors.
+"""Spatial-vector helpers used by the Featherstone algorithms."""
 
 from __future__ import annotations
 
-import numpy as np  # pyright: ignore[reportMissingImports]
-from numpy.typing import ArrayLike, NDArray  # pyright: ignore[reportMissingImports]
+import numpy as np
+from numpy.typing import ArrayLike, NDArray
 
 from .rotations import skew
 
@@ -89,7 +85,5 @@ def geometric_to_force(w: ArrayLike) -> NDArray:
     return np.concatenate([w[3:], w[:3]])
 
 
-# This module deliberately uses ``[angular; linear]`` while
-# :mod:`robot_dynamics.utils.transforms` uses ``[linear; angular]`` for geometric
-# Jacobians. Both conventions are standard in their own context; keeping them in
-# separate modules with this note is safer than silently picking one.
+# Spatial motion vectors use [angular; linear]. Public geometric Jacobians
+# use [linear; angular]. Conversion functions above keep the conventions explicit.

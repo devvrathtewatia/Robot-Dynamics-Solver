@@ -1,17 +1,17 @@
 r"""Homogeneous (4x4) transformations.
 
-Compute the exact inverse of a rigid transformation matrix using its closed-form solution rather than a general matrix inverse:
+The inverse of a rigid transformation is computed from its rotation and translation blocks:
 
 .. math::
 
 T^{-1} = \begin{bmatrix} R^\top & -R^\top p \\ 0 & 1 \end{bmatrix}
 
-This method is faster, exact, and prevents numerical drift from a valid rigid transform.
+For a valid rigid transform, this avoids a general 4x4 matrix inversion.
 """
 from __future__ import annotations
 
-import numpy as np  # pyright: ignore[reportMissingImports]
-from numpy.typing import ArrayLike, NDArray  # pyright: ignore[reportMissingImports]
+import numpy as np
+from numpy.typing import ArrayLike, NDArray
 
 
 def transform(R: ArrayLike, p: ArrayLike):

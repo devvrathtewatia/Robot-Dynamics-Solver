@@ -188,7 +188,7 @@ def main() -> None:
         "Symmetry and positive definiteness hold everywhere. The third column is the "
         "passivity property that makes the computed-torque stability proof valid; it "
         "holds only for the Christoffel factorisation of C, so this pins down the "
-        "factorisation and not merely the product `C qd`."
+        "factorisation itself, not only the product `C qd`."
     )
     out("")
 
@@ -262,8 +262,8 @@ def main() -> None:
     out("## 4. Against independent derivations")
     out("")
     out(
-        "The tests above prove self-consistency. These prove the model is the "
-        "*intended* one, which no property test can do."
+        "The checks above include both internal consistency and independent "
+        "model references."
     )
     out("")
 
@@ -426,10 +426,9 @@ def main() -> None:
 
     out("")
     out(
-        "An inexact `dM/dq` propagates straight into `C`. At `1e-6` relative error a "
-        "genuine modelling discrepancy and a differentiation artefact are "
-        "indistinguishable; at machine precision any disagreement between backends is "
-        "unambiguous."
+        "An inexact `dM/dq` propagates into `C`. At the scales in this test, the "
+        "difference between finite-difference and complex-step derivatives is visible "
+        "in the reported error."
     )
     out("")
 
@@ -509,9 +508,8 @@ def main() -> None:
     out("## 7. Energy conservation")
     out("")
     out(
-        "A passive arm under gravity. This is a genuine test rather than a "
-        "demonstration: the algebraic identities are all evaluated at one instant, "
-        "whereas drift accumulates."
+        "A passive arm under gravity. This reports integration drift over time "
+        "alongside the instantaneous algebraic checks."
     )
     out("")
     out("| integrator | dt | relative energy drift over 4 s |")

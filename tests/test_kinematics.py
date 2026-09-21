@@ -1,11 +1,8 @@
-# Phase 1 and 3: primitives, transforms, kinematics and Jacobians.
-
-# pylint: disable=no-member
 
 from __future__ import annotations
 
-import numpy as np  # pyright: ignore[reportMissingImports]
-import pytest  # pyright: ignore[reportMissingImports]
+import numpy as np
+import pytest
 
 from robot_dynamics import Joint, Link, Robot, planar_chain, random_robot
 from robot_dynamics.kinematics import (
@@ -33,7 +30,6 @@ from robot_dynamics.utils import (
 RNG = np.random.default_rng(2024)
 
 
-# --------------------------------------------------------------- rotations
 @pytest.mark.parametrize('fn', [rot_x, rot_y, rot_z])
 def test_rotations_are_valid_rotation_matrices(fn):
     for theta in RNG.uniform(-np.pi, np.pi, size=12):
@@ -80,9 +76,7 @@ def test_skew_rejects_bad_shapes():
         skew(np.zeros(4))
 
 
-# ------------------------------------------------------------- transforms
 def test_transform_inverse_gives_identity():
-    # The Phase 1 requirement: T * T^-1 = I.
     for _ in range(50):
         axis = RNG.normal(size=3)
         axis /= np.linalg.norm(axis)         # must be the SAME vector, normalised
@@ -106,7 +100,6 @@ def test_transform_blocks_round_trip():
     assert np.allclose(T[3], [0, 0, 0, 1])
 
 
-# ---------------------------------------------------------------- spatial
 def test_plucker_inverse_is_a_true_inverse():
     T = transform(rot_x(0.7) @ rot_z(-0.3), [0.1, 0.2, -0.4])
     X = plucker(T)
@@ -119,7 +112,6 @@ def test_spatial_inertia_is_symmetric_and_has_the_right_mass():
     assert np.allclose(I[3:, 3:], 2.5 * np.eye(3))
 
 
-# ------------------------------------------------------------- kinematics
 def test_two_dof_forward_kinematics_against_hand_derivation():
     # Manually derived 2-DOF planar case, as the spec requires.
     l1 = 1.0

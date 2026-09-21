@@ -1,15 +1,15 @@
 # Numerical integration and the simulation loop.
 # RK4 with a fixed step. Fourth order matters here: with explicit Euler the energy
 # drift of a passive manipulator is large enough to be mistaken for a bug in the
-# dynamics, whereas RK4 conserves energy well enough that simulate can be used as a
-# test of the dynamics rather than merely a demonstration of it.
+# dynamics, while RK4 keeps the numerical drift small enough for the simulation check.
+# The energy result is used as a numerical check on the dynamics.
 
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 
-import numpy as np  # pyright:ignore[reportMissingImports]
-from numpy.typing import ArrayLike, NDArray  # pyright:ignore[reportMissingImports]
+import numpy as np
+from numpy.typing import ArrayLike, NDArray
 
 from ..models.robot import Robot
 

@@ -9,7 +9,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from numpy.typing import ArrayLike, NDArray  # pyright:ignore[reportMissingImports]
+from numpy.typing import ArrayLike, NDArray
 
 from . import control, dynamics, kinematics, models, simulation, trajectory
 from .dynamics import crba as _crba
@@ -28,11 +28,7 @@ from .models.examples import (
 from .models.robot import Joint, Link, Robot
 
 __version__ = '1.0.0'
-
-
-# --------------------------------------------------------------------------
 # Kinematics
-# --------------------------------------------------------------------------
 def _forward_kinematics(self: Robot, q: ArrayLike):
     # End-effector pose T_0^n(q) as a 4x4 homogeneous transform.
     return _fk.forward_kinematics(self, q)
@@ -53,11 +49,7 @@ def _jacobian_dot(self: Robot, q: ArrayLike, qd: ArrayLike,
                   link: int = -1):
     # J_dot(q, qd) by complex-step differentiation.
     return _fk.jacobian_dot(self, q, qd, link=link)
-
-
-# --------------------------------------------------------------------------
 # Dynamics — the method= argument selects between independent backends
-# --------------------------------------------------------------------------
 def _mass_matrix(self: Robot, q: ArrayLike,
                  method: str = 'crba'):
     # The mass matrix M(q).

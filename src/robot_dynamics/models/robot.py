@@ -1,20 +1,10 @@
-# This is a description of the robot that we defined. It is made to not inherit any
-# specific dof. It is modelled around the fact that length `n` represents the number of joints.
-# Every algorithm in the library loops over that.
-# the 2 - DOF planar arm and a random 30 - DOF chain go down exactly the same code path.
-
-# Geometry convention --> Joint ``i`` connects link ``i-1`` to link ``i``.
-# It's origin is the fixed 4x4 transform from the previous link's frame to the joint
-# The joint's own motion is then applied along axis 'i'
-
-
-# This is the URDF layout, so a model can be transcribed from a robot description
-# without re-deriving Denavit-Hartenberg parameters. Each link's inertial
-# property is described in its own frame, which is the frame that
-# the URDF specifies.
-
-# The model follows the convention :-
-#          T_0^i = T_0^(i-1) * origin_i * joint_motion(q_i)
+# Joint i connects link i-1 to link i. The fixed origin transform is applied
+# first, followed by the joint motion along the joint axis.
+#
+# The model uses a URDF-like frame convention so each link inertia and COM are
+# expressed in the corresponding link frame.
+#
+# T_0^i = T_0^(i-1) @ origin_i @ joint_motion_i(q_i)
 
 from __future__ import annotations
 
@@ -22,8 +12,8 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Literal
 
-import numpy as np  # pyright: ignore[reportMissingImports]
-from numpy.typing import ArrayLike, NDArray  # pyright: ignore[reportMissingImports]
+import numpy as np
+from numpy.typing import ArrayLike, NDArray
 
 from ..utils.rotations import rot_axis
 from ..utils.transforms import transform
@@ -35,14 +25,14 @@ JointType = Literal['revolute', 'prismatic']
 class Link:
     """A rigid body.
 
-    Parameters -->
+    Parameters:
 
     mass: Mass in kg. Must be positive.
-    com: Centre of mass in the with respect to the link frame in metres.
-    inertia: 3x3 rotational inertia about the centre of mass in link-frame axes.
-             Must be symmetric positive definite and satisfy the triangle inequalities
-             on its principal moments, or it does not describe a physical body.
-    name: This is an otional label, just used for external-wrench lookup and error messages.
+    com: Centre of mass in the link frame, in metres.
+    inertia: 3x3 rotational inertia about the centre of mass, expressed in
+             link-frame axes. It must be symmetric positive definite and satisfy
+             the triangle inequalities on its principal moments.
+    name: Optional label used for external-wrench lookup and error messages.
     """
 
     mass: float
@@ -64,7 +54,7 @@ class Link:
         Raise if the inertia tensor cannot belong to a real rigid body.
         We check positive definiteness and the triangle inequality on the principal
         moments. An inertia that fails these can make the mass matrix indefinite,
-        which will then prove to be a bug in dynamics rather than a bad model.
+        which can otherwise be mistaken for a dynamics failure.
         """
         eig = np.linalg.eigvalsh(self.inertia)
         if eig.min() <= tol:
@@ -79,7 +69,7 @@ class Link:
 @dataclass
 class Joint:
     """
-    Parameters -->
+    Parameters:
     joint_type: revolute or prismatic.
     axis: Unit axis in the joint frame. Normalised on construction.
     origin: Fixed 4x4 transform from the previous link's frame to this joint's frame.
@@ -126,7 +116,7 @@ class Robot:
     """
     A fixed-base serial chain of arbitrary length.
 
-    Parameters -->
+    Parameters:
     links, joints: Equal-length sequences, joints[i] drives links[i].
     gravity: Gravitational acceleration in the base frame, default
              [0, 0, -9.81].
@@ -155,7 +145,7 @@ class Robot:
 
     @property
     def n(self) -> int:
-        # No. of degrees of freedom
+        # Number of degrees of freedom
         return len(self.joints)
 
     def __repr__(self) -> str:
@@ -174,8 +164,10 @@ class Robot:
             link.validate_physical()
 
     def check_q(self, *arrays: ArrayLike) -> tuple[NDArray, ...]:
-        """Convert joint-space arrays to 1D float arrays of shape (n,), or raise an error.
-           Centralizing this check catches shape issues early and provides a clear, consistent error message."""
+        """Convert joint-space inputs to arrays of shape ``(n,)``.
+
+        A single check keeps shape errors consistent across the public API.
+        """
         out = []
         for a in arrays:
             v = np.asarray(a, dtype=float).reshape(-1)

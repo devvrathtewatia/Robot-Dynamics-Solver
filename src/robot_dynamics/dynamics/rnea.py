@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-import numpy as np  # pyright: ignore[reportMissingImports]
-from numpy.typing import ArrayLike, NDArray  # pyright: ignore[reportMissingImports]
+import numpy as np
+from numpy.typing import ArrayLike, NDArray
 
 from ..kinematics.forward import (
     joint_transforms_spatial,

@@ -1,7 +1,7 @@
 """Dynamics backends: Lagrangian, RNEA, CRBA and ABA.
 
 Each is an independent implementation sharing only the kinematic model, which is
-what makes their agreement meaningful rather than circular.
+what makes the cross-check useful.
 """
 from . import crba, lagrangian, rnea
 

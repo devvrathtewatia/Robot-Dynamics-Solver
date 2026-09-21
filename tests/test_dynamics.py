@@ -1,24 +1,7 @@
-# Phases 7, 8, 11, 12, 13, 14 and 19: the dynamics validation suite.
-#
-# Organised by *what kind of evidence* each test provides, because that is what
-# determines how much it is worth:
-#
-# * **analytic** — against an independent hand derivation. The anchor.
-# * **structural** — properties any correct model must have.
-# * **isolation** — each term switched off in turn.
-# * **round trip** — inverse then forward dynamics recovers the input.
-# * **cross-backend** — independent implementations agree.
-#
-# Property tests alone can only prove self-consistency: a model could satisfy every
-# one of them and still describe the wrong robot. The analytic and symbolic tests are
-# what rule that out.
-
-# pylint: disable=no-member
-
 from __future__ import annotations
 
-import numpy as np  # pyright: ignore[reportMissingImports]
-import pytest  # pyright: ignore[reportMissingImports]
+import numpy as np
+import pytest
 
 from robot_dynamics import (
     analytic_two_dof,
@@ -34,9 +17,6 @@ from robot_dynamics.dynamics import crba, lagrangian, rnea
 RNG = np.random.default_rng(31337)
 TIGHT = 1e-10
 
-# One identical API exercised over every DOF count and topology. The spec's
-# "your test suite should literally instantiate 2, 3, 4, 5, 6 DOF" requirement,
-# extended past 6 to make the point that nothing is special about six.
 ROBOTS = [
     ('planar2', planar_chain(2)),
     ('planar3', planar_chain(3)),
@@ -60,17 +40,13 @@ IDS = [name for name, _ in ROBOTS]
 def _state(robot, scale=0.8):
     q = robot.random_configuration(RNG)
     return q, RNG.normal(size=robot.n) * scale, RNG.normal(size=robot.n) * scale
-
-
-# =====================================================================
 # ANALYTIC — against an independent derivation
-# =====================================================================
 @pytest.mark.parametrize('q1,q2,qd1,qd2', [
     (0.0, 0.0, 0.0, 0.0), (0.3, -0.7, 0.5, 0.2), (1.9, 2.4, -1.1, 0.8),
     (-2.2, 0.15, 0.03, -2.0), (np.pi / 2, np.pi / 2, 1.0, 1.0),
 ])
 def test_two_dof_matches_the_closed_form(q1, q2, qd1, qd2):
-    # The single most valuable test: an external hand derivation.
+    # Compare against the hand-derived 2-DOF model.
     params = {'m1': 1.3, 'm2': 0.8, 'l1': 0.9, 'l2': 0.6,
               'I1': 0.11, 'I2': 0.07}
     robot = two_dof_planar(**params)
@@ -102,11 +78,7 @@ def test_single_pendulum_against_the_textbook_equation():
                            m * 9.81 * lc * np.cos(theta))
         # a pendulum has no Coriolis term at all: M is constant
         assert np.allclose(robot.coriolis([theta], [1.7]), 0.0)
-
-
-# =====================================================================
 # STRUCTURAL — properties any correct model must have
-# =====================================================================
 @pytest.mark.parametrize('name,robot', ROBOTS, ids=IDS)
 def test_mass_matrix_is_symmetric(name, robot):
     # M = M.T, checked before the library's own symmetrisation.
@@ -157,11 +129,7 @@ def test_kinetic_energy_is_consistent_with_the_mass_matrix(name, robot):
                       0.5 * qd @ robot.mass_matrix(q) @ qd)
     assert robot.kinetic_energy(q, np.zeros(robot.n)) == pytest.approx(0.0)
     assert robot.kinetic_energy(q, qd) > 0.0
-
-
-# =====================================================================
 # ISOLATION — switch each term off in turn
-# =====================================================================
 @pytest.mark.parametrize('name,robot', ROBOTS, ids=IDS)
 def test_at_rest_the_torque_is_pure_gravity(name, robot):
     # qd = 0, qdd = 0 => tau = G(q).
@@ -212,14 +180,8 @@ def test_a_gantry_has_no_velocity_product_terms():
     assert np.allclose(robot.coriolis(q, qd), 0.0, atol=1e-12)
     assert np.allclose(lagrangian.mass_matrix_derivative(robot, q), 0.0,
                        atol=1e-12)
-
-
-# =====================================================================
-# ROUND TRIP — the Phase 7/8 consistency requirement
-# =====================================================================
 @pytest.mark.parametrize('name,robot', ROBOTS, ids=IDS)
 def test_inverse_dynamics_equals_the_assembled_terms(name, robot):
-    # Phase 7: tau_direct ≈ M * qdd + C * qd + G.
     q, qd, qdd = _state(robot)
     assembled = (robot.mass_matrix(q) @ qdd
                  + robot.coriolis(q, qd) @ qd
@@ -232,7 +194,6 @@ def test_inverse_dynamics_equals_the_assembled_terms(name, robot):
 @pytest.mark.parametrize('name,robot', ROBOTS, ids=IDS)
 @pytest.mark.parametrize('fd_method', ['aba', 'lagrangian'])
 def test_forward_inverse_round_trip(name, robot, fd_method):
-    # Phase 8: qdd -> tau -> qdd recovers the input.
     for _ in range(3):
         q, qd, qdd = _state(robot)
         tau = robot.inverse_dynamics(q, qd, qdd)
@@ -247,17 +208,11 @@ def test_round_trip_the_other_way(name, robot):
     tau = RNG.normal(size=robot.n)
     qdd = robot.forward_dynamics(q, qd, tau)
     assert np.allclose(robot.inverse_dynamics(q, qd, qdd), tau, atol=1e-8)
-
-
-# =====================================================================
 # CROSS-BACKEND — Phases 12, 13, 14
-# =====================================================================
 @pytest.mark.parametrize('name,robot', ROBOTS, ids=IDS)
 def test_lagrange_agrees_with_rnea(name, robot):
-    # Phase 12: tau_Lagrange ≈ tau_RNEA.
     #
-    # Two formalisms, sharing only the kinematic model. The strongest single piece of
-    # evidence in the suite.
+    # Compare two dynamics formulations on the same robot model.
     for _ in range(5):
         q, qd, qdd = _state(robot)
         tl = lagrangian.inverse_dynamics(robot, q, qd, qdd)
@@ -268,7 +223,6 @@ def test_lagrange_agrees_with_rnea(name, robot):
 
 @pytest.mark.parametrize('name,robot', ROBOTS, ids=IDS)
 def test_lagrange_agrees_with_crba(name, robot):
-    # Phase 13: M_Lagrange ≈ M_CRBA.
     for _ in range(5):
         q = robot.random_configuration(RNG)
         Ml = lagrangian.mass_matrix(robot, q)
@@ -281,7 +235,6 @@ def test_lagrange_agrees_with_crba(name, robot):
 
 @pytest.mark.parametrize('name,robot', ROBOTS, ids=IDS)
 def test_lagrange_agrees_with_aba(name, robot):
-    # Phase 14: qdd_Lagrange ≈ qdd_ABA.
     for _ in range(5):
         q, qd, _ = _state(robot)
         tau = RNG.normal(size=robot.n)
@@ -295,7 +248,6 @@ def test_lagrange_agrees_with_aba(name, robot):
 def test_coriolis_matrix_product_matches_the_recursive_vector(name, robot):
     # C(q, qd) * qd from Christoffel symbols vs from RNEA.
     #
-    # The sharpest test of the Lagrangian layer: it exercises M, its derivative and the
     # factorisation simultaneously. A wrong axis permutation in the Christoffel tensor
     # is invisible to every other test here and shows up as ~1e-1 in this one.
     for _ in range(5):

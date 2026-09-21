@@ -1,8 +1,7 @@
 """A torque-free arm falling under gravity, and the energy check it enables.
 
-Energy conservation is a genuine test of the dynamics rather than a demonstration
-of it: an error in M, C or G shows up as drift even when every algebraic identity
-still holds at a single instant.
+The energy trace gives a numerical check on the dynamics because integration drift
+accumulates over many time steps.
 """
 from __future__ import annotations
 

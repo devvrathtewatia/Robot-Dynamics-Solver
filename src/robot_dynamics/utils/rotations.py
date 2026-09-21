@@ -1,11 +1,8 @@
-
-# We built rotation matrices and cross-product operations built to support complex numbers.
-# We avoid using standard np.zeros or np.eye because thier default types do not support complex numbers,
-# and we want to support complex-step differentiation.
+"""Rotation and cross-product utilities used by the kinematics code."""
 
 from __future__ import annotations
-import numpy as np  # pyright: ignore[reportMissingImports]
-from numpy.typing import ArrayLike, NDArray  # pyright: ignore[reportMissingImports]
+import numpy as np
+from numpy.typing import ArrayLike, NDArray
 
 
 def rot_x(theta: float):

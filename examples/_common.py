@@ -17,7 +17,7 @@ def figure_path(name: str) -> str:
 def style():
     """Return pyplot with consistent styling, or None if matplotlib is absent.
 
-    The examples degrade to printing numbers rather than failing, so the library
+    The examples print a message when plotting dependencies are unavailable, so the library
     stays usable without matplotlib installed.
     """
     try:

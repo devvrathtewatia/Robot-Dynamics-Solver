@@ -10,8 +10,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Literal
 
-import numpy as np  # pyright: ignore[reportMissingImports]
-from numpy.typing import ArrayLike  # pyright: ignore[reportMissingImports]
+import numpy as np
+from numpy.typing import ArrayLike
 
 from ..kinematics.forward import com_jacobians, jacobian, link_transforms
 from ..models.robot import Robot
@@ -20,7 +20,6 @@ DiffMethod = Literal['complex', 'central', 'forward']
 
 
 def mass_matrix(robot: Robot, q: ArrayLike):
-    # Compute the joint-space mass matrix M(q)
     q = np.asarray(q).reshape(-1)
     Ts = link_transforms(robot, q)
     Js = com_jacobians(robot, q)
@@ -37,7 +36,6 @@ def mass_matrix(robot: Robot, q: ArrayLike):
 
 def mass_matrix_derivative(robot: Robot, q: ArrayLike,
                            method: DiffMethod = 'complex', h: float | None = None):
-    # Compute the partial derivative of the mass matrix with respect to q.
     # Returns an (n, n, n) array where dM[i, j, k] = dM_ij / dq_k.
 
     q = np.asarray(q, dtype=float).reshape(-1)
@@ -75,7 +73,6 @@ def mass_matrix_derivative(robot: Robot, q: ArrayLike,
 
 
 def coriolis(robot: Robot, q: ArrayLike, qd: ArrayLike, method: DiffMethod = 'complex'):
-    # Compute the Coriolis and centrifugal matrix C(q, qd) via Christoffel symbols.
     q, qd = robot.check_q(q, qd)
     dM = mass_matrix_derivative(robot, q, method=method)
 
@@ -86,13 +83,11 @@ def coriolis(robot: Robot, q: ArrayLike, qd: ArrayLike, method: DiffMethod = 'co
 
 
 def coriolis_vector(robot: Robot, q: ArrayLike, qd: ArrayLike, method: DiffMethod = 'complex'):
-    # Compute the velocity-product torques C(q, qd) * qd.
     q, qd = robot.check_q(q, qd)
     return coriolis(robot, q, qd, method=method) @ qd
 
 
 def gravity(robot: Robot, q: ArrayLike):
-    # Compute the gravity torque vector G(q).
     q, = robot.check_q(q)
     Js = com_jacobians(robot, q)
     G = np.zeros(robot.n)
@@ -102,7 +97,6 @@ def gravity(robot: Robot, q: ArrayLike):
 
 
 def potential_energy(robot: Robot, q: ArrayLike):
-    # Compute potential energy V(q).
     from ..kinematics.forward import com_positions
     q, = robot.check_q(q)
     coms = com_positions(robot, q)
@@ -111,13 +105,11 @@ def potential_energy(robot: Robot, q: ArrayLike):
 
 
 def kinetic_energy(robot: Robot, q: ArrayLike, qd: ArrayLike):
-    # Compute kinetic energy T(q, qd)
     q, qd = robot.check_q(q, qd)
     return float(0.5 * qd @ mass_matrix(robot, q) @ qd)
 
 
 def lagrangian(robot: Robot, q: ArrayLike, qd: ArrayLike):
-    # Compute the Lagrangian L = T - V.
     return kinetic_energy(robot, q, qd) - potential_energy(robot, q)
 
 

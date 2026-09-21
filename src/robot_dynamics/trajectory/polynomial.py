@@ -1,15 +1,11 @@
 # Polynomial joint-space trajectories.
-# Coefficients are obtained by solving the boundary-condition system rather than
-# by substituting memorised closed-form expressions. The two are mathematically
-# identical, but the linear-solve form is self-evidently correct, extends to any
-# polynomial order by changing one number, and cannot harbour a transcription error in
-# a coefficient — which is a real risk, since a wrong a_4 still produces a
-# plausible-looking smooth curve that quietly violates its end conditions.
+# Coefficients are obtained by solving the boundary-condition system.
+# This keeps the endpoint constraints explicit for both supported orders.
 
 from __future__ import annotations
 
-import numpy as np  # pyright:ignore[reportMissingImports]
-from numpy.typing import ArrayLike  # pyright:ignore[reportMissingImports]
+import numpy as np
+from numpy.typing import ArrayLike
 
 
 class PolynomialTrajectory:
@@ -75,7 +71,7 @@ class PolynomialTrajectory:
     def evaluate(self, t: float):
         # Return (q_d(t), qd_d(t), qdd_d(t)).
         # Times outside [0, T] are clamped, so a controller that runs past the end
-        # of the trajectory holds the final pose rather than extrapolating a polynomial
+        # of the trajectory holds the final pose instead of extrapolating.
         # off to infinity.
         tc = min(max(float(t), 0.0), self.T)
         m = self.order + 1
