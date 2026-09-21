@@ -52,7 +52,7 @@ def _axes_and_origins(robot: Robot, Ts: list[NDArray]):
 
 def point_jacobian(robot: Robot, q: ArrayLike, point: ArrayLike, up_to: int):
     # Geometric Jacobian of a point attached to a link, in the world frame.
-    # The columns after `up_to` remain zero because those joints do not affect the point.
+    # Columns after `up_to` remain zero because those joints do not affect the point.
     q = np.asarray(q).reshape(-1)
     Ts = link_transforms(robot, q)
     axes, origins = _axes_and_origins(robot, Ts)
@@ -131,11 +131,19 @@ def base_to_link_spatial(robot: Robot, q: ArrayLike):
     return out
 
 
-def jacobian_dot(robot: Robot, q: ArrayLike, qd: ArrayLike,
-                 link: int = -1, h: float = 1e-20):
-    """Computes the time derivative of the Jacobian J{dot} using complex-step differentiation
-       along qd such that J{dot}(q,qd) = Im[J(q+ih*qd)]/h. This interpretation reduces the number
-       of evaluations from 2n to just 1, and is numerically stable.
+def jacobian_dot(
+    robot: Robot,
+    q: ArrayLike,
+    qd: ArrayLike,
+    link: int = -1,
+    h: float = 1e-20,
+):
+    """Compute Jdot using complex-step differentiation along qd.
+
+    Jdot(q, qd) = Im[J(q + i*h*qd)] / h.
+
+    This requires one Jacobian evaluation instead of 2n finite-difference
+    evaluations and is numerically stable.
     """
     q = np.asarray(q, dtype=float).reshape(-1)
     qd = np.asarray(qd, dtype=float).reshape(-1)

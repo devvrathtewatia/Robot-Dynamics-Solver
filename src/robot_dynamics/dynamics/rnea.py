@@ -1,4 +1,6 @@
-"""Recursive Newton-Euler Algorithm (RNEA) for inverse dynamics and dynamics validation."""
+"""Recursive Newton-Euler Algorithm (RNEA) for inverse dynamics
+and dynamics validation.
+"""
 
 from __future__ import annotations
 
@@ -21,8 +23,11 @@ def _spatial_inertias(robot: Robot):
             for link in robot.links]
 
 
-def _external_in_link_frames(robot: Robot, q: ArrayLike,
-                             external_wrenches: Mapping[int | str, ArrayLike]):
+def _external_in_link_frames(
+    robot: Robot,
+    q: ArrayLike,
+    external_wrenches: Mapping[int | str, ArrayLike],
+):
     # Convert base-frame wrenches to link-frame spatial forces
     Ts = link_transforms(robot, np.asarray(q, dtype=float).reshape(-1))
     by_name = {link.name: i for i, link in enumerate(robot.links) if link.name}
@@ -45,8 +50,14 @@ def _external_in_link_frames(robot: Robot, q: ArrayLike,
     return out
 
 
-def inverse_dynamics(robot: Robot, q: ArrayLike, qd: ArrayLike, qdd: ArrayLike,
-                     external_wrenches: Mapping[int | str, ArrayLike] | None = None, gravity: bool = True):
+def inverse_dynamics(
+    robot: Robot,
+    q: ArrayLike,
+    qd: ArrayLike,
+    qdd: ArrayLike,
+    external_wrenches: Mapping[int | str, ArrayLike] | None = None,
+    gravity: bool = True,
+):
     # Compute inverse dynamics using the Recursive Newton-Euler Algorithm (RNEA)
     q, qd, qdd = robot.check_q(q, qd, qdd)
     n = robot.n

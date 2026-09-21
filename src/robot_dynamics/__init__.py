@@ -9,7 +9,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from numpy.typing import ArrayLike, NDArray
+from numpy.typing import ArrayLike
 
 from . import control, dynamics, kinematics, models, simulation, trajectory
 from .dynamics import crba as _crba

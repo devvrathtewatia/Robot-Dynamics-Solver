@@ -103,12 +103,10 @@ class MultiPointTrajectory:
 
         dur = np.asarray(durations, dtype=float).reshape(-1)
         if dur.size != wp.shape[0] - 1:
-            raise ValueError(
-                f'need {
-                    wp.shape[0] -
-                    1} durations for {
-                    wp.shape[0]} waypoints, got {
-                    dur.size}')
+                raise ValueError(
+    f"need {wp.shape[0] - 1}durations for "
+    f"{wp.shape[0]} waypoints, got {dur.size}"
+)
 
         if np.any(dur <= 0):
             raise ValueError('all durations must be positive')

@@ -1,6 +1,7 @@
 """Rotation and cross-product utilities used by the kinematics code."""
 
 from __future__ import annotations
+
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 

@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 from typing import Any
+
 from ..models.robot import Robot
 
 try:
     import sympy as sp
     HAVE_SYMPY = True
-except ImportError:                                    # pragma: no cover
+except ImportError:  # pragma: no cover
     sp = None
     HAVE_SYMPY = False
 
@@ -17,7 +18,8 @@ def _require_sympy():
     if not HAVE_SYMPY:
         raise ImportError(
             'the symbolic layer needs SymPy: pip install "robot_dynamics[symbolic]" '
-            '(the numerical layer does not need it)')
+            '(the numerical layer does not need it)'
+        )
 
 
 def _sym_skew(v: Any):
@@ -104,7 +106,7 @@ def symbolic_model(robot: Robot, simplify: bool = False, trig_simplify: bool = F
     if trig_simplify:
         Tkin, Vpot = sp.trigsimp(Tkin), sp.trigsimp(Vpot)
 
-    # 4. Extract M from the Hessian of T, G from the gradient of V, and C via Christoffel symbols
+    # 4. Extract M from T, G from V, and C from Christoffel symbols.
     M = sp.zeros(n, n)
     for i in range(n):
         for j in range(i, n):

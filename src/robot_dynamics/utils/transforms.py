@@ -1,6 +1,7 @@
 r"""Homogeneous (4x4) transformations.
 
-The inverse of a rigid transformation is computed from its rotation and translation blocks:
+The inverse of a rigid transformation is computed from its rotation and
+translation blocks:
 
 .. math::
 

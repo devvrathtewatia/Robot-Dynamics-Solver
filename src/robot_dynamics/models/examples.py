@@ -120,7 +120,8 @@ def two_dof_planar(m1: float = 1.0, m2: float = 1.0,
                    g: float = 9.81) -> Robot:
     """The textbook 2-DOF planar arm, parameterised to match an analytic solution.
 
-    Pairs with :func:`analytic_two_dof` for the closed-form validation check. Inertias are set as pure ``Izz`` values with tiny transverse terms,
+    Pairs with :func:`analytic_two_dof` for the closed-form validation check.
+    Inertias are set as pure ``Izz`` values with tiny transverse terms,
     exactly as the planar derivation assumes.
     """
     lc1 = l1 / 2.0 if lc1 is None else lc1

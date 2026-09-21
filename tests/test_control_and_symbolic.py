@@ -264,7 +264,8 @@ def test_pd_gain_limit_is_set_by_the_smallest_inertia():
     # The mass matrix of a serial chain is badly conditioned - the eigenvalue spread is
     # ~40x for a 2-link planar arm and >1300x for a 3-joint spatial one, because a wrist
     # roll about a slender link's own axis has almost no inertia. A single gain pair
-    # therefore cannot suit every direction: whatever damps the heavy direction creates a
+    # therefore cannot suit every direction: whatever damps the heavy direction
+    # creates a
     # pole at kd/M_min in the light one, and the integrator step must resolve it.
     # Computed torque escapes this entirely, since cancelling M makes the error dynamics
     # identical in every direction regardless of configuration. That is the practical
